@@ -21,6 +21,10 @@ def segmentIntersectionTest(a,b):
     if (inSegment(A,b) or inSegment(B,b) or inSegment(C,a) or inSegment(D,a)): return True
     return (sarea(A,B,C)*sarea(A,B,D))<0 and (sarea(C,D,A)*sarea(C,D,B)<0)
 
+def segmentCrossing(a,b):
+    A,B,C,D = a[0],a[1],b[0],b[1]
+    return (sarea(A,B,C)*sarea(A,B,D))<0 and (sarea(C,D,A)*sarea(C,D,B)<0)
+
 def inSegment(P,s):
     """Devuelve True si el punto P esta en el segmento s"""
     A,B = s[0],s[1]
@@ -108,11 +112,24 @@ def twin(e,D):
 def face(e,D):
     return D[1][e][4]
 
+def faceEdges(c,D):
+    f=D[2][c]   #la arista que le identifica
+    C=[f]       #lista de aristas
+    f=next_(f,D) #meto las siguientes
+    while f != C[0]:
+        C.append(f)
+        f=next_(f,D)
+    return C
+   
+def faceVertices(c,D):
+    aristas = faceEdges(c,D)
+    return [origin(i,D) for i in aristas]
+
 def prev(e,D):
     return D[1][e][2]
 
 def isEdgeInD(edge,D):
-    for i in len(D[1]):
+    for i in range(len(D[1])):
         if originCoords(i,D) in edge and originCoords(next_(i,D),D) in edge:
             return True
     else:
@@ -159,10 +176,14 @@ def triangulacionDCEL(D):
     while origin(next_(j,D),D) != origin(ini,D):
         for i in range(len(D[0])):
             x = originCoords(i,D)[0]
-            if x < mincoordX:
-                mincoordX = x
-                ini = origin(i,D)
-                k = i
+            if x <= mincoordX:
+                if (x < mincoordX):
+                    mincoordX = x
+                    ini = origin(i,D)
+                    k = i
+                elif originCoords(i,D)[1] < originCoords(k,D)[1]:
+                    ini = origin(i,D)
+                    k = i
         j = D[1][j][3]
     noHeTerminado = True
     while (origin(next_(k,D),D) != ini) or noHeTerminado:
@@ -268,12 +289,19 @@ def legal(a,D):
 def legalize(T):
     """Cambia todas las aristas de T por aristas legales"""
     heFlipao = True
+    lastChanged = []
     while heFlipao:
+        changed = []
         heFlipao = False
         for i in range(len(T[1])):
             if not legal(i,T):
+                changed.append(i)
                 flip(i,T)
                 heFlipao = True
+        if changed in lastChanged:
+            return
+        else:
+            lastChanged.append(changed)
     return
 
 def delone(p):
@@ -282,7 +310,7 @@ def delone(p):
     legalize(T)
     return T
 
-def plotDCEL(D):
+def plotDCEL(D,edges=None):
     nAristas = len(D[1])
     lines =  [[originCoords(i,D), originCoords(twin(i,D),D)] for i in range(nAristas)]
     lc = mc.LineCollection(lines, linewidths=2)
@@ -290,8 +318,9 @@ def plotDCEL(D):
     ax.add_collection(lc)
     x = [i[0][0] for i in lines]
     y = [i[0][1] for i in lines]
+    if edges:
+        ax.add_collection(edges)
     plt.plot(x,y,'ro')
-    plt.show()
 
 def optimizer(p):
     delone(p)
@@ -351,8 +380,43 @@ def randomPolyPoints(nVertex, nInteriorPoints):
         point = [np.random.rand(),np.random.rand()]
         if pointInPolygon(point,Poly):
             p.append(point)
-    return [[[Poly[i],Poly[(i+1)%len(Poly)]] for i in range(len(Poly))],p+Poly]
+    return [[[Poly[i],Poly[(i+1)%len(Poly)]] for i in range(len(Poly))],Poly+p]
 
 def constrainedDelaunay(puntos,aristas):
-    p = delone(puntos)
-    plotDCEL(p)
+    D = delone(puntos)
+    for (Vi,Vj) in aristas:
+        if isEdgeInD([Vi,Vj],D):
+            continue
+        newEdges = []
+        crossingEdges = []
+        for i in range(len(D[1])):
+            if twin(i,D) in crossingEdges:
+                continue
+            if segmentCrossing([Vi,Vj],[originCoords(i,D),originCoords(next_(i,D),D)]):
+                crossingEdges.append(i)
+        while len(crossingEdges) > 0:
+            e = crossingEdges.pop()
+            if not flipable(e,D):
+                crossingEdges.insert(0,e)
+            else:
+                flip(e,D)
+                if segmentCrossing([Vi,Vj],[originCoords(e,D),originCoords(next_(e,D),D)]):
+                    crossingEdges.insert(0,e)
+                else:
+                    newEdges.append(e)
+        swap = True
+        while swap:
+            swap = False
+            for e in newEdges:
+                if [originCoords(e,D),originCoords(next_(e,D),D)] == [Vi,Vj] or [originCoords(e,D),originCoords(next_(e,D),D)] == [Vj,Vi]:
+                    continue
+                if not legal(e,D):
+                    flip(e,D)
+                    swap = True
+    return D
+
+
+def triangulatePolyPoints(polyP):
+    D = constrainedDelaunay(polyP[1],polyP[0])
+    triangulos = [faceVertices(i,D) for i in range(1,len(D[2]))]
+    return [np.array([D[0][i][0] for i in range(len(D[0]))]),triangulos]

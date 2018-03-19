@@ -418,5 +418,13 @@ def constrainedDelaunay(puntos,aristas):
 
 def triangulatePolyPoints(polyP):
     D = constrainedDelaunay(polyP[1],polyP[0])
+    polygon = [i[0] for i in polyP[0]]
     triangulos = [faceVertices(i,D) for i in range(1,len(D[2]))]
+    borrar = []
+    for i,(a,b,c) in enumerate(triangulos):
+         x = (D[0][a][0][0]+D[0][b][0][0]+D[0][c][0][0])/3
+         y = (D[0][a][0][1]+D[0][b][0][1]+D[0][c][0][1])/3
+         if not pointInPolygon([x,y],polygon):
+             borrar.append(i)
+    triangulos = [t for i,t in enumerate(triangulos) if i not in borrar]
     return [np.array([D[0][i][0] for i in range(len(D[0]))]),triangulos]

@@ -19,6 +19,7 @@ def random_combination(iterable, r):
     return [pool[i] for i in indices]
 
 polyP = gtc.randomPolyPoints(20,30)
+
 """PolyP, Delone, CDT"""
 lines =  polyP[0]
 D = gtc.constrainedDelaunay(polyP[1],polyP[0])
@@ -27,6 +28,7 @@ gtc.plotPolyPoints(polyP)
 gtc.plotDCEL(gtc.delone(polyP[1]))
 gtc.plotDCEL(D,lc)
 plt.show()
+"""Polygon"""
 points, simplices = gtc.triangulatePolyPoints(polyP)
 plt.triplot(points[:,0], points[:,1], simplices)
 plt.plot(points[:,0], points[:,1], 'bo')

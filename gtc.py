@@ -18,7 +18,8 @@ def svolume(a,b,c,d):
 def segmentIntersectionTest(a,b):
     """Devuelve True si el segmento a se corta con el segmento b"""
     A,B,C,D = a[0],a[1],b[0],b[1]
-    if (inSegment(A,b) or inSegment(B,b) or inSegment(C,a) or inSegment(D,a)): return True
+    if (inSegment(A,b) or inSegment(B,b) or inSegment(C,a) or inSegment(D,a)):
+        return True
     return (sarea(A,B,C)*sarea(A,B,D))<0 and (sarea(C,D,A)*sarea(C,D,B)<0)
 
 def segmentCrossing(a,b):
@@ -76,7 +77,7 @@ def angularSort(p,c):
     q.reverse()
     return q
 
-def dcel(P):
+def dcelFromPolygon(P):
     """Crea un DCEL(Doubly connected edge list) a partir de un conjunto de
     puntos ordenados.
 
@@ -229,7 +230,7 @@ def convexHullDCEL(D):
 def triangulation(p):
     """Crea un DCEL triangulado a partir de un conjunto de puntos p"""
     P=angularSort(p,min(p))
-    D=dcel(P)
+    D=dcelFromPolygon(P)
     triangulacionDCEL(D)
     convexHullDCEL(D)
     return D
@@ -415,6 +416,43 @@ def constrainedDelaunay(puntos,aristas):
                     swap = True
     return D
 
+def dcelFromDelaunay(tri):
+    """
+    Crea un DCEL(Doubly connected edge list) a partir de un Delaunay.
+    
+    ESTRUCTURA:
+    Vertices = [Coords, arista]
+    Aristas  = [origen, gemela, anterior, posterior, cara]
+    Caras    = [arista]
+    """
+    ##########rehacer con dictionary
+    V = tri.points.copy()
+    e = []
+    f = []
+    for i,(a,b,c) in enumerate(tri.simplices):
+        n = len(e)
+        A,B,C = 0,1,2
+        ab,ba,bc,cb,ca,ac = n,n+1,n+2,n+3,n+4,n+5
+        nuevaCara = i+1
+        vecinos = list(map(lambda x: x+1,tri.neighbors[i]))
+        #a-b
+        e.append([a,ba,ca,bc,nuevaCara])
+        #b-a
+        e.append([b,ab,cb,ac,vecinos[C]])
+        #b-c
+        e.append([b,cb,ab,ca,nuevaCara])
+        #c-b
+        e.append([c,bc,ac,ba,vecinos[A]])
+        #c-a
+        e.append([c,ac,bc,ab,nuevaCara])
+        #a-c
+        e.append([a,ca,ba,cb,vecinos[B]])
+        f.append(ab)
+    for index,edge in enumerate(e):
+        if edge[-1]==0:
+            f.insert(0,index)
+            break
+    return [V,e,f]
 
 def triangulatePolyPoints(polyP):
     D = constrainedDelaunay(polyP[1],polyP[0])

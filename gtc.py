@@ -320,7 +320,8 @@ def plotDCEL(D,edges=None):
 	x = [i[0][0] for i in lines]
 	y = [i[0][1] for i in lines]
 	if edges:
-		ax.add_collection(edges)
+		lc = mc.LineCollection(edges, linewidths=2,color='k')
+		ax.add_collection(lc)
 	plt.plot(x,y,'ro')
 
 def optimizer(p):

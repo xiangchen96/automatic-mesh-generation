@@ -23,10 +23,9 @@ polyP = gtc.randomPolyPoints(20,30)
 """PolyP, Delone, CDT"""
 lines =  polyP[0]
 D = gtc.constrainedDelaunay(polyP[1],polyP[0])
-lc = mc.LineCollection(lines, linewidths=2,color='k')
 gtc.plotPolyPoints(polyP)
 gtc.plotDCEL(gtc.delone(polyP[1]))
-gtc.plotDCEL(D,lc)
+gtc.plotDCEL(D,polyP[0])
 plt.show()
 """Polygon"""
 points, simplices = gtc.triangulatePolyPoints(polyP)

@@ -118,6 +118,23 @@ class Edge:
 		D = self.next.next.origin.coords
 		return -1 not in [gtc.orientation(A,B,C),gtc.orientation(A,C,D),gtc.orientation(B,C,D),gtc.orientation(B,D,A)]
 	
+	def remove(self):
+		twin = self.twin
+		prev = self.prev
+		prev.next = twin.next
+		prev.face = twin.face
+		
+		next_ = self.next
+		next_.prev = twin.prev
+		next_.face = twin.face
+		
+		twin.next.prev = self.prev
+		twin.prev.next = self.next
+		twin.face.edge = twin.prev
+		
+		self.origin.edge = twin.next
+		twin.origin.edge = self.next
+	
 class Face:
 	
 	def __init__(self,edge):
@@ -357,17 +374,17 @@ class Dcel:
 			for line in lines:
 				line.set_data([], [])
 			return lines
-		def animate(i):
+		def animate(frame):
 			for vertex in self.vertices:
 				vertex.addForceVector(self.faces[0])
+			self.legalize()
 			edges =  [[edge.origin.coords, edge.twin.origin.coords] for edge in self.edges]
 			for i,edge in enumerate(edges):
 				lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
 			return lines
-		ani = animation.FuncAnimation(fig, animate, init_func=init,
-                               frames=100, interval=10, blit=True)
+		ani = animation.FuncAnimation(fig, animate, init_func=init,interval=3, blit=True)
 		plt.show()
-		ani.save('particle_box.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
+#		ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
 	
 	def getInteriorTriangles(self, polygon):
 		""" Returns [points, interiorSimplices] """
@@ -382,11 +399,50 @@ class Dcel:
 		triangles = [t for i,t in enumerate(triangles) if i not in exterior]
 		return [np.array([vertex.coords for vertex in self.vertices]),
 		  [[self.vertices.index(a),self.vertices.index(b),self.vertices.index(c)] for (a,b,c) in triangles]]
+	
+	def removeEdge(self, edge):
+		if type(edge) is Edge:
+			if edge.face == self.faces[0]:
+				edge = edge.twin
+			self.edges.remove(edge)
+			self.edges.remove(edge.twin)
+			if edge.twin.face != edge.face:
+				self.faces.remove(edge.face)
+			edge.remove()
+			
+		elif type(edge) is int:
+			edge = self.edges[edge]
+			if edge.face == self.faces[0]:
+				edge = edge.twin
+			self.edges.remove(edge)
+			self.edges.remove(edge.twin)
+			if edge.twin.face != edge.face:
+				self.faces.remove(edge.face)
+			edge.remove()
+		
+	def removeVertex(self, vertex):
+		if type(vertex) == Vertex:
+			self.vertices.remove(vertex)
+			for edge in 	vertex.getEdges():
+				self.removeEdge(edge)
+		elif type(vertex) == int:
+			vertex = self.vertices[vertex]
+			self.vertices.remove(vertex)
+			for edge in vertex.getEdges():
+				self.removeEdge(edge)
+		
+	def triangulateFace(self, face):
+		""" TODO """
+		return
 
-""" DELONE NORMAL """
+""" NORMAL DELONE """
+#points = [list(np.random.uniform(0,1,2)) for i in range(6)]
+#D = Dcel.deloneFromPoints(points)
+#D.plotWithVertexNumber()
+
+""" ANIMATION DELONE """
 points = [list(np.random.uniform(0,1,2)) for i in range(20)]
 D = Dcel.deloneFromPoints(points)
-#D.plot()
 D.animateForces()
 
 """ Polygon """

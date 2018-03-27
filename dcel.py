@@ -3,13 +3,6 @@ import numpy as np
 import gtc
 from matplotlib import collections  as mc
 from matplotlib import animation
-import random
-
-def random_permutation(iterable, r=None):
-    "Random selection from itertools.permutations(iterable, r)"
-    pool = tuple(iterable)
-    r = len(pool) if r is None else r
-    return tuple(random.sample(pool, r))
 
 class Vertex:
 	""" 2-D Vertex with coordinates and an Edge """
@@ -421,29 +414,52 @@ class Dcel:
 			edge.remove()
 		
 	def removeVertex(self, vertex):
+		face = -1
 		if type(vertex) == Vertex:
 			self.vertices.remove(vertex)
-			for edge in 	vertex.getEdges():
+			for edge in vertex.getEdges():
+				face = edge.next.face
 				self.removeEdge(edge)
-		elif type(vertex) == int:
+		if type(vertex) == int:
 			vertex = self.vertices[vertex]
 			self.vertices.remove(vertex)
 			for edge in vertex.getEdges():
+				face = edge.next.face
 				self.removeEdge(edge)
-		
+		return face
+	
 	def triangulateFace(self, face):
-		""" TODO """
-		return
-
+		vertices = [vertex.coords for vertex in face.getVertices()]
+		if len(vertices) == 3: return
+		iterator = face.edge
+		while True:
+			if iterator.next.next.next == iterator:
+				break
+			A = iterator.origin.coords
+			B = iterator.next.origin.coords
+			C = iterator.next.next.origin.coords
+			if gtc.sarea(A,B,C) < 0:
+				iterator = iterator.next
+				continue
+			for v in vertices:
+				if v in [A,B,C]: continue
+				if gtc.inTriangle(v,[A,B,C]): 
+					iterator = iterator.next
+					break
+			else:
+				self.splitFace(iterator,iterator.next.next)
+				iterator = iterator.prev.twin
+				continue
+			
 """ NORMAL DELONE """
-#points = [list(np.random.uniform(0,1,2)) for i in range(6)]
-#D = Dcel.deloneFromPoints(points)
-#D.plotWithVertexNumber()
+points = [list(np.random.uniform(0,1,2)) for i in range(7)]
+D = Dcel.deloneFromPoints(points)
+D.plotWithVertexNumber()
 
 """ ANIMATION DELONE """
-points = [list(np.random.uniform(0,1,2)) for i in range(20)]
-D = Dcel.deloneFromPoints(points)
-D.animateForces()
+#points = [list(np.random.uniform(0,1,2)) for i in range(20)]
+#D = Dcel.deloneFromPoints(points)
+#D.animateForces()
 
 """ Polygon """
 #polyP = gtc.randomPolyPoints(20,5)

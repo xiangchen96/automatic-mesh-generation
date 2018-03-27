@@ -48,6 +48,12 @@ def dist2(A,B):
 	"""Calcula el cuadrado de la distancia entre los puntos A y B"""
 	return (A[0]-B[0])**2+(A[1]-B[1])**2
 
+def inTriangle(P,t):
+    """Devuelve True si el punto P se encuentra dentro del triangulo t"""
+    A,B,C=t[0],t[1],t[2]
+    L=[orientation(A,B,P),orientation(B,C,P),orientation(C,A,P)]
+    return not(1 in L and -1 in L)
+
 def orientation(A,B,C):
 	"""Calcula la orientacion del triangulo formado por los puntos A,B,C"""
 	return np.sign(((B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1])))

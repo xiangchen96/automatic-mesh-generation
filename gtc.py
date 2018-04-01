@@ -2,6 +2,7 @@ import numpy as np
 from functools import cmp_to_key
 import matplotlib.pyplot as plt
 from matplotlib import collections  as mc
+from math import acos, degrees
 
 def midPoint(A,B):
 	"""Calcula el punto medio entre los puntos A y B"""
@@ -473,3 +474,9 @@ def triangulatePolyPoints(polyP):
 			 borrar.append(i)
 	triangulos = [t for i,t in enumerate(triangulos) if i not in borrar]
 	return [np.array([D[0][i][0] for i in range(len(D[0]))]),triangulos]
+
+def get_angles(a,b,c):
+    get_angle = lambda a, b, c: round(degrees(acos((b*b+c*c-a*a)/(float(2*b*c)))))
+    if a + b <= c or b + c <= a or c + a <= b:
+        return [0, 0, 0]
+    return [get_angle(a, b, c), get_angle(b, c, a), get_angle(c, a, b)]

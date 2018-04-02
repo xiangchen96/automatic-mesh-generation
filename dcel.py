@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import gtc
+import utils
 from matplotlib import collections  as mc
 from matplotlib import animation
 
@@ -107,11 +107,11 @@ class Edge:
         B = self.twin.prev.origin.coords
         C = self.next.origin.coords
         D = self.next.next.origin.coords
-        if -1 in [gtc.orientation(A,B,C),gtc.orientation(A,C,D),
-                  gtc.orientation(B,C,D),gtc.orientation(B,D,A)]:
+        if -1 in [utils.orientation(A,B,C),utils.orientation(A,C,D),
+                  utils.orientation(B,C,D),utils.orientation(B,D,A)]:
             return True
         else:
-            return gtc.inCircle(A,C,D,B)==-1
+            return utils.in_circle(A,C,D,B)==-1
     
     def isFlippable(self,face0):
         if self.face == face0 or self.twin.face == face0:
@@ -120,8 +120,8 @@ class Edge:
         B = self.twin.prev.origin.coords
         C = self.next.origin.coords
         D = self.next.next.origin.coords
-        return -1 not in [gtc.orientation(A,B,C),gtc.orientation(A,C,D),
-                          gtc.orientation(B,C,D),gtc.orientation(B,D,A)]
+        return -1 not in [utils.orientation(A,B,C),utils.orientation(A,C,D),
+                          utils.orientation(B,C,D),utils.orientation(B,D,A)]
     
     def remove(self):
         twin = self.twin
@@ -189,7 +189,7 @@ class Dcel:
     
     @classmethod
     def deloneFromPoints(cls,points):
-        P = gtc.angularSort(points,min(points))
+        P = utils.angular_sort(points,min(points))
         D = cls(P)
         D.triangulate_interior()
         D.triangulate_exterior()
@@ -289,7 +289,7 @@ class Dcel:
         while True:
             if iterator.face == self.faces[0]:
                 break
-            if gtc.orientation(iterator.origin.coords,
+            if utils.orientation(iterator.origin.coords,
                                iterator.next.origin.coords,
                                iterator.next.next.origin.coords) == 1:
                 self.splitFace(iterator,iterator.next.next)
@@ -309,7 +309,7 @@ class Dcel:
                 break
         iterator = mostLeftEdge
         while True:
-            if gtc.orientation(iterator.origin.coords,
+            if utils.orientation(iterator.origin.coords,
                                iterator.next.origin.coords,
                                iterator.next.next.origin.coords) == 1:
                 self.splitFace(iterator,iterator.next.next)
@@ -354,7 +354,7 @@ class Dcel:
             for edge in self.edges:
                 if edge.twin in crossingEdges:
                     continue
-                if gtc.segmentCrossing([Vi,Vj],
+                if utils.segment_crossing([Vi,Vj],
                                        [edge.origin.coords,edge.next.origin.coords]):
                     crossingEdges.append(edge)
             while len(crossingEdges) > 0:
@@ -363,7 +363,7 @@ class Dcel:
                     crossingEdges.insert(0,e)
                 else:
                     e.flip()
-                    if gtc.segmentCrossing([Vi,Vj],
+                    if utils.segment_crossing([Vi,Vj],
                                            [e.origin.coords,e.next.origin.coords]):
                         crossingEdges.insert(0,e)
                     else:
@@ -417,7 +417,7 @@ class Dcel:
         for i,(a,b,c) in enumerate(triangles):
              x = (a.coords[0]+b.coords[0]+c.coords[0])/3
              y = (a.coords[1]+b.coords[1]+c.coords[1])/3
-             if not gtc.pointInPolygon([x,y],poly):
+             if not utils.pointInPolygon([x,y],poly):
                  exterior.append(i)
         triangles = [t for i,t in enumerate(triangles) if i not in exterior]
         return [np.array([vertex.coords for vertex in self.vertices]),
@@ -468,12 +468,12 @@ class Dcel:
             A = iterator.origin.coords
             B = iterator.next.origin.coords
             C = iterator.next.next.origin.coords
-            if gtc.sarea(A,B,C) < 0:
+            if utils.sarea(A,B,C) < 0:
                 iterator = iterator.next
                 continue
             for v in vertices:
                 if v in [A,B,C]: continue
-                if gtc.inTriangle(v,[A,B,C]): 
+                if utils.in_triangle(v,[A,B,C]): 
                     iterator = iterator.next
                     break
             else:
@@ -485,21 +485,21 @@ class Dcel:
         angles = []
         for face in self.faces[1:]:
             a,b,c = (edge.get_length() for edge in face.get_edges())
-            angles += gtc.get_angles(a,b,c)
+            angles += utils.get_angles(a,b,c)
         return min(angles)
             
 """ NORMAL DELONE """
-points = [list(np.random.uniform(0,1,2)) for i in range(7)]
-D = Dcel.deloneFromPoints(points)
-D.plot_with_vertex_number()
+#points = [list(np.random.uniform(0,1,2)) for i in range(7)]
+#D = Dcel.deloneFromPoints(points)
+#D.plot_with_vertex_number()
 
 """ ANIMATION DELONE """
-#points = [list(np.random.uniform(0,1,2)) for i in range(30)]
-#D = Dcel.deloneFromPoints(points)
-#D.animate_forces()
+points = [list(np.random.uniform(0,1,2)) for i in range(30)]
+D = Dcel.deloneFromPoints(points)
+D.animate_forces()
 
 """ Polygon """
-#polyP = gtc.randomPolyPoints(20,5)
-#gtc.plotPolyPoints(polyP)
+#polyP = utils.random_poly_points(20,50)
+#utils.plot_poly_points(polyP)
 #D = Dcel.triangulatePolygonWithPoints(polyP[1],polyP[0])
 #D.plotPolygon()

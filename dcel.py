@@ -140,6 +140,12 @@ class Edge:
         self.origin.edge = twin.next
         twin.origin.edge = self.next
     
+    def mid_point(self):
+        x = (self.origin.coords[0] + self.twin.origin.coords[0]) / 2
+        y = (self.origin.coords[1] + self.twin.origin.coords[1]) / 2
+        return [x,y]
+    
+    
 class Face:
     
     def __init__(self,edge):
@@ -487,6 +493,35 @@ class Dcel:
             a,b,c = (edge.get_length() for edge in face.get_edges())
             angles += utils.get_angles(a,b,c)
         return min(angles)
+    
+    def split_edge(self, edge_or_index):
+        edge = None
+        if isinstance(edge_or_index, Edge): edge = edge_or_index
+        elif isinstance(edge_or_index, int): edge = self.edges[edge_or_index]
+        new_vertex = Vertex(edge.mid_point())
+        new_edge = Edge(edge.origin)
+        new_twin_edge = Edge(new_vertex)
+        self.vertices.append(new_vertex)
+        self.edges.append(new_edge)
+        self.edges.append(new_twin_edge)
+        new_vertex.edge = edge
+        
+        new_edge.twin = new_twin_edge
+        new_edge.face = edge.face
+        new_edge.next = edge
+        new_edge.prev = edge.prev
+        
+        new_twin_edge.face = edge.twin.face
+        new_twin_edge.next = edge.twin.next
+        new_twin_edge.prev = edge.twin
+        new_twin_edge.twin = new_edge
+        
+        edge.prev = new_edge
+        edge.origin = new_vertex
+        
+        edge.twin.next = new_twin_edge
+        
+        
             
 """ NORMAL DELONE """
 #points = [list(np.random.uniform(0,1,2)) for i in range(7)]

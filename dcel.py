@@ -38,7 +38,7 @@ class Vertex:
         vector = [sum(v[0] for v in vectors),sum(v[1] for v in vectors)]
         return vector
     
-    def add_force_vector(self,face0, coef=0.01):
+    def add_force_vector(self,face0, coef=0.05):
         if face0 not in self.get_faces():
             vector = self._get_force_vector()
             self.coords[0] = self.coords[0] + vector[0]*coef
@@ -171,7 +171,9 @@ class Dcel:
         self.vertices = [Vertex(orderedPoints[i]) for i in range(n)]
         self.edges = [Edge(self.vertices[i]) for i in range(n)]
         self.edges += [Edge(self.vertices[(i+1)%n]) for i in range(n)]
-        
+        self.polygon = None
+        self.nuevos_vertices = []
+        self.alpha = None
         for i in range(n):
             edge = self.edges[i]
             self.vertices[i].edge = edge
@@ -192,6 +194,21 @@ class Dcel:
             self.edges[i].face = self.faces[1]
             self.edges[n+i].face = self.faces[0]
         """ END edges """
+    
+    @classmethod
+    def deloneFromPolygonFile(cls,fileName):
+        f = open(fileName,"r")
+        points = []
+        number_of_points = int(f.readline())
+        for i in range(number_of_points):
+            line = f.readline()
+            x,y = line.split(" ")
+            points.append([float(x),float(y)])
+        D = Dcel.deloneFromPoints(points)
+        D.polygon = [[points[i],points[(i+1)%len(points)]] for i in range(len(points))]
+        D.enforce_edges(D.polygon)
+        f.close()
+        return D
     
     @classmethod
     def deloneFromPoints(cls,points):
@@ -411,9 +428,12 @@ class Dcel:
 #       ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
     
     def iterate_forces(self):
+        polygon_vertices = [arista[0] for arista in self.polygon]
         for vertex in self.vertices:
-            vertex.add_force_vector(self.faces[0])
+            if vertex.coords not in polygon_vertices:
+                vertex.add_force_vector(self.faces[0])
         self.legalize()
+        self.enforce_edges(self.polygon)
     
     def get_interior_triangles(self, polygon):
         """ Returns [points, interiorSimplices] """
@@ -487,11 +507,48 @@ class Dcel:
                 iterator = iterator.prev.twin
                 continue
     
+    def add_points(self):
+        if self.polygon:
+            for a,b,c in self.get_interior_triangles(self.polygon)[1]:
+                a1 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[b].coords[0],
+                  self.vertices[a].coords[1]-self.vertices[b].coords[1]])
+                a2 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[c].coords[0],
+                  self.vertices[a].coords[1]-self.vertices[c].coords[1]])
+                a3 = np.linalg.norm([self.vertices[c].coords[0]-self.vertices[b].coords[0],
+                  self.vertices[c].coords[1]-self.vertices[b].coords[1]])
+                for angle in utils.get_angles(a1,a2,a3):
+                    if angle < self.alpha:
+                        x = (self.vertices[a].coords[0]+self.vertices[b].coords[0]+self.vertices[c].coords[0])/3
+                        y = (self.vertices[a].coords[1]+self.vertices[b].coords[1]+self.vertices[c].coords[1])/3
+                        self.nuevos_vertices.append([x,y])
+                        break
+                if self.nuevos_vertices:
+                    break
+            puntos = [vertex.coords for vertex in self.vertices]+self.nuevos_vertices
+            D = Dcel.deloneFromPoints(puntos)
+            D.polygon = self.polygon
+            D.enforce_edges(D.polygon)
+            self.vertices = D.vertices
+            self.edges = D.edges
+            self.faces = D.faces
+            self.nuevos_vertices = []
+            
+    
     def get_minimun_angle(self):
         angles = []
-        for face in self.faces[1:]:
-            a,b,c = (edge.get_length() for edge in face.get_edges())
-            angles += utils.get_angles(a,b,c)
+        if self.polygon:
+            for a,b,c in self.get_interior_triangles(self.polygon)[1]:
+                a1 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[b].coords[0],
+                  self.vertices[a].coords[1]-self.vertices[b].coords[1]])
+                a2 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[c].coords[0],
+                  self.vertices[a].coords[1]-self.vertices[c].coords[1]])
+                a3 = np.linalg.norm([self.vertices[c].coords[0]-self.vertices[b].coords[0],
+                  self.vertices[c].coords[1]-self.vertices[b].coords[1]])
+                angles += utils.get_angles(a1,a2,a3)
+        else:
+            for face in self.faces[1:]:
+                a,b,c = (edge.get_length() for edge in face.get_edges())
+                angles += utils.get_angles(a,b,c)
         return min(angles)
     
     def split_edge(self, edge_or_index):
@@ -520,21 +577,37 @@ class Dcel:
         edge.origin = new_vertex
         
         edge.twin.next = new_twin_edge
-        
-        
+    
+    def iterate_main(self):
+        D.add_points()
+        for i in range(5):
+            D.iterate_forces()
+        return
             
 """ NORMAL DELONE """
-#points = [list(np.random.uniform(0,1,2)) for i in range(7)]
-#D = Dcel.deloneFromPoints(points)
-#D.plot_with_vertex_number()
+#points = np.random.uniform(0,1,[100,2])
+#plt.plot(points[:,0],points[:,1],'o')
+#plt.show()
+#D = Dcel.deloneFromPoints(list(map(list,points)))
+#D.plot()
 
 """ ANIMATION DELONE """
-points = [list(np.random.uniform(0,1,2)) for i in range(30)]
-D = Dcel.deloneFromPoints(points)
-D.animate_forces()
+#points = [list(np.random.uniform(0,1,2)) for i in range(30)]
+#D = Dcel.deloneFromPoints(points)
+#D.animate_forces()
 
 """ Polygon """
 #polyP = utils.random_poly_points(20,50)
 #utils.plot_poly_points(polyP)
 #D = Dcel.triangulatePolygonWithPoints(polyP[1],polyP[0])
 #D.plotPolygon()
+
+""" FILE """
+D = Dcel.deloneFromPolygonFile("puntos")
+D.alpha = 27
+D.plotPolygon()
+print("angulo minimo = ",D.get_minimun_angle())
+for i in range(25):
+    D.iterate_main()
+    D.plotPolygon()
+    print("angulo minimo = ",D.get_minimun_angle())

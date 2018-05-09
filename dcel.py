@@ -38,11 +38,10 @@ class Vertex:
         vector = [sum(v[0] for v in vectors),sum(v[1] for v in vectors)]
         return vector
     
-    def add_force_vector(self,face0, coef=0.05):
-        if face0 not in self.get_faces():
-            vector = self._get_force_vector()
-            self.coords[0] = self.coords[0] + vector[0]*coef
-            self.coords[1] = self.coords[1] + vector[1]*coef
+    def add_force_vector(self, coef=0.05):
+        vector = self._get_force_vector()
+        self.coords[0] = self.coords[0] + vector[0]*coef
+        self.coords[1] = self.coords[1] + vector[1]*coef
     
 class Edge:
     """ 2-D Edge with an Origin Vertex, twin edge, previous edge and next edge """
@@ -113,7 +112,7 @@ class Edge:
         else:
             return utils.in_circle(A,C,D,B)==-1
     
-    def isFlippable(self,face0):
+    def is_flippable(self,face0):
         if self.face == face0 or self.twin.face == face0:
             return False
         A = self.origin.coords
@@ -141,8 +140,10 @@ class Edge:
         twin.origin.edge = self.next
     
     def mid_point(self):
-        x = (self.origin.coords[0] + self.twin.origin.coords[0]) / 2
-        y = (self.origin.coords[1] + self.twin.origin.coords[1]) / 2
+        coords_1 = self.origin.coords
+        coords_2 = self.twin.origin.coords
+        x = (coords_1[0]+coords_2[0]) / 2
+        y = (coords_1[1]+coords_2[1]) / 2
         return [x,y]
     
     
@@ -168,11 +169,25 @@ class Dcel:
     
     def __init__(self,orderedPoints):
         n = len(orderedPoints)
-        self.vertices = [Vertex(orderedPoints[i]) for i in range(n)]
+        self.min_x = None
+        self.max_x = None
+        self.min_y = None
+        self.max_y = None
+        self.vertices = []
+        for point in orderedPoints:
+            self.vertices.append(Vertex(point))
+            if not self.min_x or point[0] < self.min_x:
+                self.min_x = point[0]
+            elif not self.max_x or point[0] > self.max_x:
+                self.max_x = point[0]
+            if not self.min_y or point[1] < self.min_y:
+                self.min_y = point[1]
+            elif not self.max_y or point[1] > self.max_y:
+                self.max_y = point[1]
+            
         self.edges = [Edge(self.vertices[i]) for i in range(n)]
         self.edges += [Edge(self.vertices[(i+1)%n]) for i in range(n)]
         self.polygon = None
-        self.nuevos_vertices = []
         self.alpha = None
         for i in range(n):
             edge = self.edges[i]
@@ -386,7 +401,7 @@ class Dcel:
                     crossingEdges.append(edge)
             while len(crossingEdges) > 0:
                 e = crossingEdges.pop()
-                if not e.isFlippable(self.faces[0]):
+                if not e.is_flippable(self.faces[0]):
                     crossingEdges.insert(0,e)
                 else:
                     e.flip()
@@ -406,50 +421,20 @@ class Dcel:
                         e.flip()
                         swap = True
     
-    def animate_forces(self):
-        fig = plt.figure()
-        ax = plt.axes(xlim=(0, 1.3), ylim=(0, 1.3))
-        angle_text = plt.text(1, 0.9, '', fontsize=10)
-        iteration = plt.text(1, 0.8, '', fontsize=10)
-        
-        lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.edges))]
-        def init():
-            for line in lines:
-                line.set_data([], [])
-            return lines
-        def animate(frame):
-            for vertex in self.vertices:
-                vertex.add_force_vector(self.faces[0])
-            self.legalize()
-            angle_text.set_text("min_angle: "+str(self.get_minimun_angle())+"º")
-            iteration.set_text("iter: "+str(frame))
-            edges =  [[edge.origin.coords, edge.twin.origin.coords] for edge in self.edges]
-            for i,edge in enumerate(edges):
-                lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
-            return lines+[angle_text,iteration]
-        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=3, blit=True)
-        plt.show()
-#       ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
-    
     def iterate_forces(self):
         polygon_vertices = [arista[0] for arista in self.polygon]
         for vertex in self.vertices:
             if vertex.coords not in polygon_vertices:
-                vertex.add_force_vector(self.faces[0])
+                vertex.add_force_vector()
         self.legalize()
         self.enforce_edges(self.polygon)
         
-    def iterate_main(self):
-        self.add_points()
-        for i in range(5):
-            self.iterate_forces()
-        return
     
     def animate_main(self):
         fig = plt.figure()
-        ax = plt.axes(xlim=(-5,5), ylim=(-5, 5))
-        angle_text = plt.text(3, 4, '', fontsize=10)
-        iteration = plt.text(3, 3, '', fontsize=10)
+        ax = plt.axes(xlim=(self.min_x-1,self.max_x+1), ylim=(self.min_y-1, self.max_y+1))
+        angle_text = plt.text(self.max_x-2, self.max_y, '', fontsize=10)
+        iteration = plt.text(self.max_x-2, self.max_y-1, '', fontsize=10)
         
         lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.vertices)**2)]
         def init():
@@ -457,7 +442,10 @@ class Dcel:
                 line.set_data([], [])
             return lines
         def animate(frame):
-            self.iterate_main()
+            if frame%10 == 0:
+                self.add_point()
+            else:
+                self.iterate_forces()
             angle_text.set_text("min_angle: "+str(self.get_minimun_angle())+"º")
             iteration.set_text("iter: "+str(frame))
             edges = []
@@ -467,7 +455,8 @@ class Dcel:
             for i,edge in enumerate(edges):
                 lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
             return lines+[angle_text,iteration]
-        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=200, blit=True)
+        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=10, blit=True)
+#        ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
         plt.show()
         
     def get_interior_triangles(self, polygon):
@@ -482,66 +471,9 @@ class Dcel:
                  faces.append(self.faces[i+1])
         return faces
     
-    def remove_edge(self, edge):
-        if type(edge) is Edge:
-            if edge.face == self.faces[0]:
-                edge = edge.twin
-            self.edges.remove(edge)
-            self.edges.remove(edge.twin)
-            if edge.twin.face != edge.face:
-                self.faces.remove(edge.face)
-            edge.remove()
-            
-        elif type(edge) is int:
-            edge = self.edges[edge]
-            if edge.face == self.faces[0]:
-                edge = edge.twin
-            self.edges.remove(edge)
-            self.edges.remove(edge.twin)
-            if edge.twin.face != edge.face:
-                self.faces.remove(edge.face)
-            edge.remove()
-        
-    def remove_vertex(self, vertex):
-        face = None
-        if type(vertex) == Vertex:
-            self.vertices.remove(vertex)
-            for edge in vertex.get_edges():
-                face = edge.next.face
-                self.remove_edge(edge)
-        if type(vertex) == int:
-            vertex = self.vertices[vertex]
-            self.vertices.remove(vertex)
-            for edge in vertex.get_edges():
-                face = edge.next.face
-                self.remove_edge(edge)
-        return face
-    
-    def triangulate_face(self, face):
-        vertices = [vertex.coords for vertex in face.getVertices()]
-        if len(vertices) == 3: return
-        iterator = face.edge
-        while True:
-            if iterator.next.next.next == iterator:
-                break
-            A = iterator.origin.coords
-            B = iterator.next.origin.coords
-            C = iterator.next.next.origin.coords
-            if utils.sarea(A,B,C) < 0:
-                iterator = iterator.next
-                continue
-            for v in vertices:
-                if v in [A,B,C]: continue
-                if utils.in_triangle(v,[A,B,C]): 
-                    iterator = iterator.next
-                    break
-            else:
-                self.splitFace(iterator,iterator.next.next)
-                iterator = iterator.prev.twin
-                continue
-    
-    def add_points(self):
+    def add_point(self):
         if self.polygon:
+            new_point = None
             for face in self.get_interior_triangles(self.polygon):
                 a,b,c = face.getVertices()
                 a1 = np.linalg.norm([a.coords[0]-b.coords[0],
@@ -554,11 +486,11 @@ class Dcel:
                     if angle < self.alpha:
                         x = (a.coords[0]+b.coords[0]+c.coords[0])/3
                         y = (a.coords[1]+b.coords[1]+c.coords[1])/3
-                        self.nuevos_vertices.append([x,y])
+                        new_point = [x,y]
                         break
-                if self.nuevos_vertices:
+                if new_point:
                     break
-            puntos = [vertex.coords for vertex in self.vertices]+self.nuevos_vertices
+            puntos = [vertex.coords for vertex in self.vertices]+[new_point]
             D = Dcel.deloneFromPoints(puntos)
             D.polygon = self.polygon
             D.enforce_edges(D.polygon)
@@ -586,54 +518,10 @@ class Dcel:
                 angles += utils.get_angles(a,b,c)
         return min(angles)
     
-    def split_edge(self, edge_or_index):
-        edge = None
-        if isinstance(edge_or_index, Edge): edge = edge_or_index
-        elif isinstance(edge_or_index, int): edge = self.edges[edge_or_index]
-        new_vertex = Vertex(edge.mid_point())
-        new_edge = Edge(edge.origin)
-        new_twin_edge = Edge(new_vertex)
-        self.vertices.append(new_vertex)
-        self.edges.append(new_edge)
-        self.edges.append(new_twin_edge)
-        new_vertex.edge = edge
-        
-        new_edge.twin = new_twin_edge
-        new_edge.face = edge.face
-        new_edge.next = edge
-        new_edge.prev = edge.prev
-        
-        new_twin_edge.face = edge.twin.face
-        new_twin_edge.next = edge.twin.next
-        new_twin_edge.prev = edge.twin
-        new_twin_edge.twin = new_edge
-        
-        edge.prev = new_edge
-        edge.origin = new_vertex
-        
-        edge.twin.next = new_twin_edge
     
     
             
-""" NORMAL DELONE """
-#points = np.random.uniform(0,1,[100,2])
-#plt.plot(points[:,0],points[:,1],'o')
-#plt.show()
-#D = Dcel.deloneFromPoints(list(map(list,points)))
-#D.plot()
-
-""" ANIMATION DELONE """
-#points = [list(np.random.uniform(0,1,2)) for i in range(30)]
-#D = Dcel.deloneFromPoints(points)
-#D.animate_forces()
-
-""" Polygon """
-#polyP = utils.random_poly_points(20,50)
-#utils.plot_poly_points(polyP)
-#D = Dcel.triangulatePolygonWithPoints(polyP[1],polyP[0])
-#D.plotPolygon()
-
-""" FILE """
+""" Demo Animation """
 D = Dcel.deloneFromPolygonFile("puntos")
-D.alpha = 27
+D.alpha = 28
 D.animate_main()

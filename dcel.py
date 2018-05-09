@@ -228,7 +228,11 @@ class Dcel:
     
     def plotPolygon(self):
         if self.polygon:
-            points, simplices = D.get_interior_triangles(self.polygon)
+            points = np.array([vertex.coords for vertex in self.vertices])
+            simplices = []
+            for face in self.get_interior_triangles(self.polygon):
+                a,b,c = face.getVertices()
+                simplices.append([self.vertices.index(a),self.vertices.index(b),self.vertices.index(c)])
             plt.triplot(points[:,0], points[:,1], simplices)
             plt.plot(points[:,0], points[:,1], 'bo')
             plt.show()
@@ -434,20 +438,49 @@ class Dcel:
                 vertex.add_force_vector(self.faces[0])
         self.legalize()
         self.enforce_edges(self.polygon)
+        
+    def iterate_main(self):
+        self.add_points()
+        for i in range(5):
+            self.iterate_forces()
+        return
     
+    def animate_main(self):
+        fig = plt.figure()
+        ax = plt.axes(xlim=(-5,5), ylim=(-5, 5))
+        angle_text = plt.text(3, 4, '', fontsize=10)
+        iteration = plt.text(3, 3, '', fontsize=10)
+        
+        lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.vertices)**2)]
+        def init():
+            for line in lines:
+                line.set_data([], [])
+            return lines
+        def animate(frame):
+            self.iterate_main()
+            angle_text.set_text("min_angle: "+str(self.get_minimun_angle())+"º")
+            iteration.set_text("iter: "+str(frame))
+            edges = []
+            for face in self.get_interior_triangles(self.polygon):
+                for edge in face.get_edges():
+                    edges.append([edge.origin.coords, edge.twin.origin.coords])
+            for i,edge in enumerate(edges):
+                lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
+            return lines+[angle_text,iteration]
+        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=200, blit=True)
+        plt.show()
+        
     def get_interior_triangles(self, polygon):
         """ Returns [points, interiorSimplices] """
         poly = [i[0] for i in polygon]
-        triangles = [face.getVertices() for face in self.faces if face != self.faces[0]]
-        exterior = []
+        triangles = [face.getVertices() for face in self.faces[1:]]
+        faces = []
         for i,(a,b,c) in enumerate(triangles):
              x = (a.coords[0]+b.coords[0]+c.coords[0])/3
              y = (a.coords[1]+b.coords[1]+c.coords[1])/3
-             if not utils.pointInPolygon([x,y],poly):
-                 exterior.append(i)
-        triangles = [t for i,t in enumerate(triangles) if i not in exterior]
-        return [np.array([vertex.coords for vertex in self.vertices]),
-          [[self.vertices.index(a),self.vertices.index(b),self.vertices.index(c)] for (a,b,c) in triangles]]
+             if utils.pointInPolygon([x,y],poly):
+                 faces.append(self.faces[i+1])
+        return faces
     
     def remove_edge(self, edge):
         if type(edge) is Edge:
@@ -509,17 +542,18 @@ class Dcel:
     
     def add_points(self):
         if self.polygon:
-            for a,b,c in self.get_interior_triangles(self.polygon)[1]:
-                a1 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[b].coords[0],
-                  self.vertices[a].coords[1]-self.vertices[b].coords[1]])
-                a2 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[c].coords[0],
-                  self.vertices[a].coords[1]-self.vertices[c].coords[1]])
-                a3 = np.linalg.norm([self.vertices[c].coords[0]-self.vertices[b].coords[0],
-                  self.vertices[c].coords[1]-self.vertices[b].coords[1]])
+            for face in self.get_interior_triangles(self.polygon):
+                a,b,c = face.getVertices()
+                a1 = np.linalg.norm([a.coords[0]-b.coords[0],
+                  a.coords[1]-b.coords[1]])
+                a2 = np.linalg.norm([a.coords[0]-c.coords[0],
+                  a.coords[1]-c.coords[1]])
+                a3 = np.linalg.norm([c.coords[0]-b.coords[0],
+                  c.coords[1]-b.coords[1]])
                 for angle in utils.get_angles(a1,a2,a3):
                     if angle < self.alpha:
-                        x = (self.vertices[a].coords[0]+self.vertices[b].coords[0]+self.vertices[c].coords[0])/3
-                        y = (self.vertices[a].coords[1]+self.vertices[b].coords[1]+self.vertices[c].coords[1])/3
+                        x = (a.coords[0]+b.coords[0]+c.coords[0])/3
+                        y = (a.coords[1]+b.coords[1]+c.coords[1])/3
                         self.nuevos_vertices.append([x,y])
                         break
                 if self.nuevos_vertices:
@@ -537,13 +571,14 @@ class Dcel:
     def get_minimun_angle(self):
         angles = []
         if self.polygon:
-            for a,b,c in self.get_interior_triangles(self.polygon)[1]:
-                a1 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[b].coords[0],
-                  self.vertices[a].coords[1]-self.vertices[b].coords[1]])
-                a2 = np.linalg.norm([self.vertices[a].coords[0]-self.vertices[c].coords[0],
-                  self.vertices[a].coords[1]-self.vertices[c].coords[1]])
-                a3 = np.linalg.norm([self.vertices[c].coords[0]-self.vertices[b].coords[0],
-                  self.vertices[c].coords[1]-self.vertices[b].coords[1]])
+            for face in self.get_interior_triangles(self.polygon):
+                a,b,c = face.getVertices()
+                a1 = np.linalg.norm([a.coords[0]-b.coords[0],
+                  a.coords[1]-b.coords[1]])
+                a2 = np.linalg.norm([a.coords[0]-c.coords[0],
+                  a.coords[1]-c.coords[1]])
+                a3 = np.linalg.norm([c.coords[0]-b.coords[0],
+                  c.coords[1]-b.coords[1]])
                 angles += utils.get_angles(a1,a2,a3)
         else:
             for face in self.faces[1:]:
@@ -578,11 +613,7 @@ class Dcel:
         
         edge.twin.next = new_twin_edge
     
-    def iterate_main(self):
-        D.add_points()
-        for i in range(5):
-            D.iterate_forces()
-        return
+    
             
 """ NORMAL DELONE """
 #points = np.random.uniform(0,1,[100,2])
@@ -605,9 +636,4 @@ class Dcel:
 """ FILE """
 D = Dcel.deloneFromPolygonFile("puntos")
 D.alpha = 27
-D.plotPolygon()
-print("angulo minimo = ",D.get_minimun_angle())
-for i in range(25):
-    D.iterate_main()
-    D.plotPolygon()
-    print("angulo minimo = ",D.get_minimun_angle())
+D.animate_main()

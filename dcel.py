@@ -253,9 +253,12 @@ class Dcel:
             plt.show()
     
     def plot(self):
+        plotted = []
         for edge in self.edges:
-            plt.plot([edge.origin.coords[0],edge.twin.origin.coords[0]],
-                     [edge.origin.coords[1],edge.twin.origin.coords[1]],'bo-')
+            if edge.twin not in plotted:
+                plotted.append(edge)
+                plt.plot([edge.origin.coords[0],edge.twin.origin.coords[0]],
+                         [edge.origin.coords[1],edge.twin.origin.coords[1]],'bo-')
         plt.show()
     
     def plotWithEdges(self, edges):
@@ -451,11 +454,12 @@ class Dcel:
             edges = []
             for face in self.get_interior_triangles(self.polygon):
                 for edge in face.get_edges():
-                    edges.append([edge.origin.coords, edge.twin.origin.coords])
+                    if [edge.twin.origin.coords,edge.origin.coords] not in edges:
+                        edges.append([edge.origin.coords, edge.twin.origin.coords])
             for i,edge in enumerate(edges):
                 lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
             return lines+[angle_text,iteration]
-        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=10, blit=True)
+        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=0, blit=True)
 #        ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
         plt.show()
         
@@ -490,6 +494,8 @@ class Dcel:
                         break
                 if new_point:
                     break
+            if new_point == None:
+                return
             puntos = [vertex.coords for vertex in self.vertices]+[new_point]
             D = Dcel.deloneFromPoints(puntos)
             D.polygon = self.polygon
@@ -518,10 +524,25 @@ class Dcel:
                 angles += utils.get_angles(a,b,c)
         return min(angles)
     
+    def generate_mesh(self):
+        iteration = 0
+        while self.get_minimun_angle() < self.alpha and iteration < 1000:
+            if iteration%10 == 0:
+                self.add_point()
+            else:
+                self.iterate_forces()
+            iteration += 1
+        print("angulo ",self.get_minimun_angle())
+        print("vertices ", len(self.vertices))
     
-    
-            
-""" Demo Animation """
+""" Meshing """
 D = Dcel.deloneFromPolygonFile("puntos")
-D.alpha = 28
-D.animate_main()
+D.plot()
+D.alpha = 30
+D.generate_mesh()
+D.plot()
+
+""" Demo Animation """
+#D = Dcel.deloneFromPolygonFile("puntos")
+#D.alpha = 28
+#D.animate_main()

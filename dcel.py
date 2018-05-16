@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import utils
+import utilidades as utils
 from matplotlib import collections  as mc
 from matplotlib import animation
 
@@ -228,6 +228,13 @@ class Dcel:
         f.close()
         return D
     
+    @classmethod 
+    def deloneFromPolygon(cls,points):
+        D = Dcel.deloneFromPoints(points)
+        D.polygon = [[points[i],points[(i+1)%len(points)]] for i in range(len(points))]
+        D.enforce_edges(D.polygon)
+        return D
+    
     @classmethod
     def deloneFromPoints(cls,points):
         P = utils.angular_sort(points,min(points))
@@ -235,13 +242,6 @@ class Dcel:
         D.triangulate_interior()
         D.triangulate_exterior()
         D.legalize()
-        return D
-    
-    @classmethod
-    def triangulatePolygonWithPoints(cls,points,polygon):
-        D = Dcel.deloneFromPoints(points)
-        D.enforce_edges(polygon)
-        D.polygon = polygon
         return D
     
     def plotPolygon(self):
@@ -556,23 +556,9 @@ class Dcel:
     
     def generate_mesh(self):
         iteration = 0
-        while self.get_minimun_angle() < self.alpha and iteration < 1000:
+        while self.get_minimun_angle() < self.alpha and iteration < 500:
             if iteration%10 == 0:
                 self.add_point()
             else:
                 self.iterate_forces()
             iteration += 1
-        print("angulo ",self.get_minimun_angle())
-        print("vertices ", len(self.vertices))
-    
-""" Meshing """
-#D = Dcel.deloneFromPolygonFile("puntos")
-#D.plotPolygon()
-#D.alpha = 30
-#D.generate_mesh()
-#D.plotPolygon()
-
-""" Demo Animation """
-D = Dcel.deloneFromPolygonFile("puntos")
-D.alpha = 28
-D.animate_main()

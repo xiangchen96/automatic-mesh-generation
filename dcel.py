@@ -58,6 +58,9 @@ class Edge:
                   self.origin.coords[1]-self.twin.origin.coords[1]]
         return np.linalg.norm(vector)
     
+    def destino(self):
+        return self.next.origin
+    
     def flip(self):
         
         twin = self.twin
@@ -488,6 +491,11 @@ class Dcel:
                   c.coords[1]-b.coords[1]])
                 for angle in utils.get_angles(a1,a2,a3):
                     if angle < self.alpha:
+#                        for edge in face.get_edges():
+#                            if edge.twin.face == self.faces[0]:
+#                                self.splitEdge(edge)
+#                                break
+#                        else:
                         x = (a.coords[0]+b.coords[0]+c.coords[0])/3
                         y = (a.coords[1]+b.coords[1]+c.coords[1])/3
                         new_point = [x,y]
@@ -504,7 +512,6 @@ class Dcel:
             self.edges = D.edges
             self.faces = D.faces
             self.nuevos_vertices = []
-            
     
     def get_minimun_angle(self):
         angles = []
@@ -524,6 +531,29 @@ class Dcel:
                 angles += utils.get_angles(a,b,c)
         return min(angles)
     
+    def splitEdge(self,edge):
+        new_point = edge.mid_point()
+        a,b = edge.origin.coords, edge.destino().coords
+        for i, edge in enumerate(self.polygon):
+            if (edge[0] == a and edge[1] == b):
+                aux = edge[1]
+                edge[1] = new_point
+                self.polygon.append([new_point,b])
+                break
+            if (edge[0] == b and edge[1] == a):
+                aux = edge[1]
+                edge[1] = new_point
+                self.polygon.append([new_point,a])
+                
+        puntos = [vertex.coords for vertex in self.vertices]+[new_point]
+        D = Dcel.deloneFromPoints(puntos)
+        D.polygon = self.polygon
+        D.enforce_edges(D.polygon)
+        self.vertices = D.vertices
+        self.edges = D.edges
+        self.faces = D.faces
+        self.nuevos_vertices = []
+    
     def generate_mesh(self):
         iteration = 0
         while self.get_minimun_angle() < self.alpha and iteration < 1000:
@@ -536,13 +566,13 @@ class Dcel:
         print("vertices ", len(self.vertices))
     
 """ Meshing """
-D = Dcel.deloneFromPolygonFile("puntos")
-D.plot()
-D.alpha = 30
-D.generate_mesh()
-D.plot()
+#D = Dcel.deloneFromPolygonFile("puntos")
+#D.plotPolygon()
+#D.alpha = 30
+#D.generate_mesh()
+#D.plotPolygon()
 
 """ Demo Animation """
-#D = Dcel.deloneFromPolygonFile("puntos")
-#D.alpha = 28
-#D.animate_main()
+D = Dcel.deloneFromPolygonFile("puntos")
+D.alpha = 28
+D.animate_main()

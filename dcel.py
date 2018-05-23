@@ -181,11 +181,11 @@ class Dcel:
             self.vertices.append(Vertex(point))
             if not self.min_x or point[0] < self.min_x:
                 self.min_x = point[0]
-            elif not self.max_x or point[0] > self.max_x:
+            if not self.max_x or point[0] > self.max_x:
                 self.max_x = point[0]
             if not self.min_y or point[1] < self.min_y:
                 self.min_y = point[1]
-            elif not self.max_y or point[1] > self.max_y:
+            if not self.max_y or point[1] > self.max_y:
                 self.max_y = point[1]
             
         self.edges = [Edge(self.vertices[i]) for i in range(n)]
@@ -335,12 +335,18 @@ class Dcel:
             if iterator == ini:
                 break
         iterator = mostLeftEdge
+        splitted = []
         while True:
+            if iterator == iterator.next.next.next:
+                break
             if iterator.face == self.faces[0]:
                 break
             if utils.orientation(iterator.origin.coords,
                                iterator.next.origin.coords,
                                iterator.next.next.origin.coords) == 1:
+                if [iterator, iterator.next.next] in splitted:
+                    break
+                splitted.append([iterator,iterator.next.next])
                 self.splitFace(iterator,iterator.next.next)
                 iterator = iterator.prev.twin
             else:
@@ -449,6 +455,7 @@ class Dcel:
                 line.set_data([], [])
             return lines
         def animate(frame):
+            lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.vertices)**2)]
             if frame%10 == 0:
                 self.add_point()
             else:
@@ -461,7 +468,8 @@ class Dcel:
                     if [edge.twin.origin.coords,edge.origin.coords] not in edges:
                         edges.append([edge.origin.coords, edge.twin.origin.coords])
             for i,edge in enumerate(edges):
-                lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
+                if (len(lines) > i):
+                    lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
             return lines+[angle_text,iteration]
         ani = animation.FuncAnimation(fig, animate, init_func=init,interval=0, blit=True)
 #        ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
@@ -479,6 +487,12 @@ class Dcel:
                  faces.append(self.faces[i+1])
         return faces
     
+    def isConstrained(self,edge):
+        if [edge.origin.coords,edge.destino().coords] in self.polygon:
+            return True
+        if [edge.destino().coords,edge.origin.coords] in self.polygon:
+            return True
+    
     def add_point(self):
         if self.polygon:
             new_point = None
@@ -495,7 +509,7 @@ class Dcel:
                 for angle in utils.get_angles(a1,a2,a3):
                     if angle < self.alpha:
                         for edge in face.get_edges():
-                            if edge.twin.face == self.faces[0]:
+                            if self.isConstrained(edge):
                                 if edge.get_length() > 2*edge.next.get_length() \
                                     or edge.get_length() > 2*edge.prev.get_length() \
                                     or (edge.get_length() > edge.next.get_length() and \
@@ -544,11 +558,11 @@ class Dcel:
         for i, edge in enumerate(self.polygon):
             if (edge[0] == a and edge[1] == b):
                 edge[1] = new_point
-                self.polygon.append([new_point,b])
+                self.polygon.insert(i+1,[new_point,b])
                 break
             if (edge[0] == b and edge[1] == a):
                 edge[1] = new_point
-                self.polygon.append([new_point,a])
+                self.polygon.insert(i+1,[new_point,a])
                 
         puntos = [vertex.coords for vertex in self.vertices]+[new_point]
         D = Dcel.deloneFromPoints(puntos)

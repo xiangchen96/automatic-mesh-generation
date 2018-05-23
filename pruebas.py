@@ -17,9 +17,9 @@ def filePoints(fileName):
             'segments':np.array([[i,(i+1)%len(points)] for i in range(len(points))])} 
 
 
-fileName = "puntos1"
+fileName = "puntos"
 points_and_segments = filePoints(fileName)
-angle = 30
+angle = 23
 
 triangulation = triangle.triangulate(points_and_segments, 'q'+str(angle))
 plt.axes().set_aspect('equal')
@@ -29,6 +29,7 @@ print("vertices ", len(triangulation['vertices']))
 
 D = Dcel.deloneFromPolygonFile(fileName)
 D.alpha = angle
+#D.animate_main()
 D.generate_mesh()
 D.plot()
 

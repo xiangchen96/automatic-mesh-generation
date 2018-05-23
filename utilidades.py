@@ -79,7 +79,7 @@ def in_triangle(P,t):
     return not(1 in L and -1 in L)
 
 def get_angles(a,b,c):
-    get_angle = lambda a, b, c: round(degrees(acos((b*b+c*c-a*a)/(float(2*b*c)))))
+    get_angle = lambda a, b, c: degrees(acos((b*b+c*c-a*a)/(float(2*b*c))))
     if a + b <= c or b + c <= a or c + a <= b:
         return [0, 0, 0]
     return [get_angle(a, b, c), get_angle(b, c, a), get_angle(c, a, b)]

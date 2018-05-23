@@ -257,6 +257,7 @@ class Dcel:
     
     def plot(self):
         plotted = []
+        plt.axes().set_aspect('equal')
         for edge in self.edges:
             if edge.twin not in plotted:
                 plotted.append(edge)
@@ -481,7 +482,9 @@ class Dcel:
     def add_point(self):
         if self.polygon:
             new_point = None
-            for face in self.get_interior_triangles(self.polygon):
+            lista = self.get_interior_triangles(self.polygon)
+            lista = np.random.permutation(lista)
+            for face in lista:
                 a,b,c = face.getVertices()
                 a1 = np.linalg.norm([a.coords[0]-b.coords[0],
                   a.coords[1]-b.coords[1]])
@@ -491,14 +494,18 @@ class Dcel:
                   c.coords[1]-b.coords[1]])
                 for angle in utils.get_angles(a1,a2,a3):
                     if angle < self.alpha:
-#                        for edge in face.get_edges():
-#                            if edge.twin.face == self.faces[0]:
-#                                self.splitEdge(edge)
-#                                break
-#                        else:
-                        x = (a.coords[0]+b.coords[0]+c.coords[0])/3
-                        y = (a.coords[1]+b.coords[1]+c.coords[1])/3
-                        new_point = [x,y]
+                        for edge in face.get_edges():
+                            if edge.twin.face == self.faces[0]:
+                                if edge.get_length() > 2*edge.next.get_length() \
+                                    or edge.get_length() > 2*edge.prev.get_length() \
+                                    or (edge.get_length() > edge.next.get_length() and \
+                                        edge.get_length() > edge.prev.get_length()):
+                                    self.splitEdge(edge)
+                                    return
+                        else:
+                            x = (a.coords[0]+b.coords[0]+c.coords[0])/3
+                            y = (a.coords[1]+b.coords[1]+c.coords[1])/3
+                            new_point = [x,y]
                         break
                 if new_point:
                     break
@@ -531,17 +538,15 @@ class Dcel:
                 angles += utils.get_angles(a,b,c)
         return min(angles)
     
-    def splitEdge(self,edge):
-        new_point = edge.mid_point()
-        a,b = edge.origin.coords, edge.destino().coords
+    def splitEdge(self,split):
+        new_point = split.mid_point()
+        a,b = split.origin.coords, split.destino().coords
         for i, edge in enumerate(self.polygon):
             if (edge[0] == a and edge[1] == b):
-                aux = edge[1]
                 edge[1] = new_point
                 self.polygon.append([new_point,b])
                 break
             if (edge[0] == b and edge[1] == a):
-                aux = edge[1]
                 edge[1] = new_point
                 self.polygon.append([new_point,a])
                 
@@ -553,6 +558,7 @@ class Dcel:
         self.edges = D.edges
         self.faces = D.faces
         self.nuevos_vertices = []
+    
     
     def generate_mesh(self):
         iteration = 0

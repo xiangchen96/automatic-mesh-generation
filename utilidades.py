@@ -58,6 +58,7 @@ def in_segment(P,s):
 
 def pointInPolygon(Q,p):
 	"""Devuelve True si el punto Q esta dentro del poligono p"""
+	Q = list(Q)
 	count = 0
 	disparo = [Q,[max(p)[0]+1,Q[1]]]
 	n = len(p)

@@ -3,7 +3,8 @@ import numpy as np
 import utilidades as utils
 from matplotlib import collections  as mc
 from matplotlib import animation
-
+import collections
+from scipy.spatial import Delaunay
 
 class Vertex:
     """ 2-D Vertex with coordinates and an Edge """
@@ -54,8 +55,8 @@ class Edge:
         self.face = face
     
     def get_length(self):
-        vector = [self.origin.coords[0]-self.twin.origin.coords[0],
-                  self.origin.coords[1]-self.twin.origin.coords[1]]
+        vector = [self.origin.coords[0]-self.next.origin.coords[0],
+                  self.origin.coords[1]-self.next.origin.coords[1]]
         return np.linalg.norm(vector)
     
     def destino(self):
@@ -103,7 +104,7 @@ class Edge:
         return
     
     def is_legal(self,face0):
-        if self.face == face0 or self.twin.face == face0:
+        if self.face == face0 or self.twin == None or self.twin.face == face0:
             return True
         A = self.origin.coords
         B = self.twin.prev.origin.coords
@@ -144,7 +145,7 @@ class Edge:
     
     def mid_point(self):
         coords_1 = self.origin.coords
-        coords_2 = self.twin.origin.coords
+        coords_2 = self.next.origin.coords
         x = (coords_1[0]+coords_2[0]) / 2
         y = (coords_1[1]+coords_2[1]) / 2
         return [x,y]
@@ -152,7 +153,7 @@ class Edge:
     
 class Face:
     
-    def __init__(self,edge):
+    def __init__(self,edge=None):
         self.edge = edge
     
     def get_edges(self):
@@ -170,15 +171,21 @@ class Face:
         
 class Dcel:
     
-    def __init__(self,orderedPoints):
-        n = len(orderedPoints)
+    def __init__(self,points,polygon=None):
+        tesselation = Delaunay(points)
+        if polygon:
+            self.polygon = [[polygon[i],polygon[(i+1)%len(polygon)]] for i in range(len(polygon))]
+        self.alpha = None
         self.min_x = None
         self.max_x = None
         self.min_y = None
         self.max_y = None
+        edges = collections.defaultdict()
         self.vertices = []
-        for point in orderedPoints:
-            self.vertices.append(Vertex(point))
+        self.faces = [Face()]
+        self.edges = []
+        for point in tesselation.points:
+            self.vertices.append(Vertex(list(point)))
             if not self.min_x or point[0] < self.min_x:
                 self.min_x = point[0]
             if not self.max_x or point[0] > self.max_x:
@@ -187,31 +194,42 @@ class Dcel:
                 self.min_y = point[1]
             if not self.max_y or point[1] > self.max_y:
                 self.max_y = point[1]
+        for a,b,c in tesselation.simplices:
+            edges[(a,b)] = Edge(self.vertices[a])
+            edges[(b,c)] = Edge(self.vertices[b])
+            edges[(c,a)] = Edge(self.vertices[c])
+            self.edges.append(edges[(a,b)])
+            self.vertices[a].edge = edges[(a,b)]
+            self.edges.append(edges[(b,c)])
+            self.vertices[b].edge = edges[(b,c)]
+            self.edges.append(edges[(c,a)])
+            self.vertices[c].edge = edges[(c,a)]
+            face = Face(edges[(a,b)])
+            self.faces.append(face)
+            edges[(a,b)].face = face
+            edges[(b,c)].face = face
+            edges[(c,a)].face = face
             
-        self.edges = [Edge(self.vertices[i]) for i in range(n)]
-        self.edges += [Edge(self.vertices[(i+1)%n]) for i in range(n)]
-        self.polygon = None
-        self.alpha = None
-        for i in range(n):
-            edge = self.edges[i]
-            self.vertices[i].edge = edge
-            edge.twin = self.edges[n+i]
-            edge.prev = self.edges[(i-1)%n]
-            edge.next = self.edges[(i+1)%n]
+            edges[(a,b)].prev = edges[(c,a)]
+            edges[(a,b)].next = edges[(b,c)]
             
-            edge = self.edges[n+i]
-            edge.twin = self.edges[i]
-            edge.prev = self.edges[n+(i+1)%n]
-            edge.next = self.edges[n+(i-1)%n]
-            """ END  Vertices """
-        
-        self.faces = [Face(self.edges[n]),Face(self.edges[0])]
-        """ END  Faces """
-        
-        for i in range(n):
-            self.edges[i].face = self.faces[1]
-            self.edges[n+i].face = self.faces[0]
-        """ END edges """
+            edges[(b,c)].prev = edges[(a,b)]
+            edges[(b,c)].next = edges[(c,a)]
+            
+            edges[(c,a)].prev = edges[(b,c)]
+            edges[(c,a)].next = edges[(a,b)]
+            
+            if (b,a) in edges:
+                edges[(a,b)].twin = edges[(b,a)]
+                edges[(b,a)].twin = edges[(a,b)]
+            if (c,b) in edges:
+                edges[(b,c)].twin = edges[(c,b)]
+                edges[(c,b)].twin = edges[(b,c)]
+            if (a,c) in edges:
+                edges[(a,c)].twin = edges[(c,a)]
+                edges[(c,a)].twin = edges[(a,c)]
+        if polygon:
+            self.enforce_edges()
     
     @classmethod
     def deloneFromPolygonFile(cls,fileName):
@@ -222,26 +240,10 @@ class Dcel:
             line = f.readline()
             x,y = line.split(" ")
             points.append([float(x),float(y)])
-        D = Dcel.deloneFromPoints(points)
+        D = cls(points)
         D.polygon = [[points[i],points[(i+1)%len(points)]] for i in range(len(points))]
-        D.enforce_edges(D.polygon)
+        D.enforce_edges()
         f.close()
-        return D
-    
-    @classmethod 
-    def deloneFromPolygon(cls,points):
-        D = Dcel.deloneFromPoints(points)
-        D.polygon = [[points[i],points[(i+1)%len(points)]] for i in range(len(points))]
-        D.enforce_edges(D.polygon)
-        return D
-    
-    @classmethod
-    def deloneFromPoints(cls,points):
-        P = utils.angular_sort(points,min(points))
-        D = cls(P)
-        D.triangulate_interior()
-        D.triangulate_exterior()
-        D.legalize()
         return D
     
     def plotPolygon(self):
@@ -261,32 +263,8 @@ class Dcel:
         for edge in self.edges:
             if edge.twin not in plotted:
                 plotted.append(edge)
-                plt.plot([edge.origin.coords[0],edge.twin.origin.coords[0]],
-                         [edge.origin.coords[1],edge.twin.origin.coords[1]],'bo-')
-        plt.show()
-    
-    def plotWithEdges(self, edges):
-        lines =  [[edge.origin.coords, edge.twin.origin.coords] for edge in self.edges]
-        lc = mc.LineCollection(lines, linewidths=2)
-        fig, ax = plt.subplots()
-        ax.add_collection(lc)
-        x = [i[0][0] for i in lines]
-        y = [i[0][1] for i in lines]
-        lc = mc.LineCollection(edges, linewidths=2,color='k')
-        ax.add_collection(lc)
-        plt.plot(x,y,'ro')
-        plt.show()
-    
-    def plot_with_vertex_number(self):
-        for edge in self.edges:
-            plt.plot([edge.origin.coords[0],edge.twin.origin.coords[0]],
-                     [edge.origin.coords[1],edge.twin.origin.coords[1]],'b')
-        x,y = [],[]
-        for i,vertex in enumerate(self.vertices):
-            x.append(vertex.coords[0])
-            y.append(vertex.coords[1])
-            plt.text(x[-1],y[-1]+0.02,i)
-        plt.plot(x,y,'ro')
+                plt.plot([edge.origin.coords[0],edge.next.origin.coords[0]],
+                         [edge.origin.coords[1],edge.next.origin.coords[1]],'bo-')
         plt.show()
         
     def splitFace(self,e1,e2):
@@ -322,58 +300,6 @@ class Dcel:
         k.edge = newEdge
     
         self.faces.append(newFace)
-    
-    def triangulate_interior(self):
-        """Triangula la cara interna del DCEL D"""
-        ini = self.faces[1].edge
-        mostLeftEdge = ini
-        iterator = ini
-        while True:
-            if iterator.origin.coords[0] < mostLeftEdge.origin.coords[0]:
-                mostLeftEdge = iterator
-            iterator = iterator.next
-            if iterator == ini:
-                break
-        iterator = mostLeftEdge
-        splitted = []
-        while True:
-            if iterator == iterator.next.next.next:
-                break
-            if iterator.face == self.faces[0]:
-                break
-            if utils.orientation(iterator.origin.coords,
-                               iterator.next.origin.coords,
-                               iterator.next.next.origin.coords) == 1:
-                if [iterator, iterator.next.next] in splitted:
-                    break
-                splitted.append([iterator,iterator.next.next])
-                self.splitFace(iterator,iterator.next.next)
-                iterator = iterator.prev.twin
-            else:
-                iterator = iterator.next
-    
-    def triangulate_exterior(self):
-        ini = self.faces[0].edge
-        mostLeftEdge = ini
-        iterator = ini
-        while True:
-            if iterator.origin.coords[0] < mostLeftEdge.origin.coords[0]:
-                mostLeftEdge = iterator
-            iterator = iterator.next
-            if iterator == ini:
-                break
-        iterator = mostLeftEdge
-        while True:
-            if utils.orientation(iterator.origin.coords,
-                               iterator.next.origin.coords,
-                               iterator.next.next.origin.coords) == 1:
-                self.splitFace(iterator,iterator.next.next)
-                iterator = iterator.prev.twin.prev
-                continue
-            else:
-                iterator = iterator.next
-            if iterator.next.origin == mostLeftEdge.origin:
-                break
             
     def legalize(self):
         flipped = True
@@ -397,11 +323,10 @@ class Dcel:
             if (edge.origin.coords in searched_edge and 
                 edge.next.origin.coords in searched_edge):
                 return True
-        else:
-            return False
+        return False
     
-    def enforce_edges(self,edges):
-        for (Vi,Vj) in edges:
+    def enforce_edges(self):
+        for (Vi,Vj) in self.polygon:
             if self.contains_edge([Vi,Vj]):
                 continue
             newEdges = []
@@ -440,7 +365,7 @@ class Dcel:
             if vertex.coords not in polygon_vertices:
                 vertex.add_force_vector()
         self.legalize()
-        self.enforce_edges(self.polygon)
+        self.enforce_edges()
         
     
     def animate_main(self):
@@ -465,13 +390,13 @@ class Dcel:
             edges = []
             for face in self.get_interior_triangles(self.polygon):
                 for edge in face.get_edges():
-                    if [edge.twin.origin.coords,edge.origin.coords] not in edges:
-                        edges.append([edge.origin.coords, edge.twin.origin.coords])
+                    if [edge.next.origin.coords,edge.origin.coords] not in edges:
+                        edges.append([edge.origin.coords, edge.next.origin.coords])
             for i,edge in enumerate(edges):
                 if (len(lines) > i):
                     lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
             return lines+[angle_text,iteration]
-        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=0, blit=True)
+        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=-1, blit=True)
 #        ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
         plt.show()
         
@@ -492,12 +417,13 @@ class Dcel:
             return True
         if [edge.destino().coords,edge.origin.coords] in self.polygon:
             return True
+        return False
     
     def add_point(self):
         if self.polygon:
             new_point = None
             lista = self.get_interior_triangles(self.polygon)
-            lista = np.random.permutation(lista)
+#            lista = np.random.permutation(lista)
             for face in lista:
                 a,b,c = face.getVertices()
                 a1 = np.linalg.norm([a.coords[0]-b.coords[0],
@@ -526,9 +452,8 @@ class Dcel:
             if new_point == None:
                 return
             puntos = [vertex.coords for vertex in self.vertices]+[new_point]
-            D = Dcel.deloneFromPoints(puntos)
+            D = Dcel(puntos)
             D.polygon = self.polygon
-            D.enforce_edges(D.polygon)
             self.vertices = D.vertices
             self.edges = D.edges
             self.faces = D.faces
@@ -565,9 +490,8 @@ class Dcel:
                 self.polygon.insert(i+1,[new_point,a])
                 
         puntos = [vertex.coords for vertex in self.vertices]+[new_point]
-        D = Dcel.deloneFromPoints(puntos)
+        D = Dcel(puntos)
         D.polygon = self.polygon
-        D.enforce_edges(D.polygon)
         self.vertices = D.vertices
         self.edges = D.edges
         self.faces = D.faces
@@ -577,7 +501,7 @@ class Dcel:
     def generate_mesh(self):
         iteration = 0
         while self.get_minimun_angle() < self.alpha and iteration < 500:
-            if iteration%10 == 0:
+            if iteration%20 == 0:
                 self.add_point()
             else:
                 self.iterate_forces()

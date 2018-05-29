@@ -21,17 +21,17 @@ D.plotPolygon()
 #points_and_segments = {'vertices':np.array(puntos), 
 #                       'segments':np.array([[i,(i+1)%len(puntos)] for i in range(len(puntos))])} 
 #triangulation = triangle.triangulate(points_and_segments, 'q'+str(alpha))
-
+#
 #ax = plt.axes()
 #ax.set_aspect('equal')
 #plot.plot(ax, **triangulation)
 #plt.show()
 #print("vertices:",len(triangulation['vertices']))
 
-D.animate_main()
+#D.animate_main()
 
-#D.generate_mesh()
-#D.plotPolygon()
+D.generate_mesh()
+D.plot()
 
 print("angulo ",D.get_minimun_angle())
 print("vertices ", len(D.vertices))

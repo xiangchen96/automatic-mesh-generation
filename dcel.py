@@ -355,13 +355,12 @@ class Dcel:
         angle_text = plt.text(self.max_x-2, self.max_y, '', fontsize=10)
         iteration = plt.text(self.max_x-2, self.max_y-1, '', fontsize=10)
         
-        lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.vertices))]
+        lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.edges))]
         def init():
             for line in lines:
                 line.set_data([], [])
             return lines
         def animate(frame):
-            lines = [plt.plot([], [],'bo-')[0] for _ in range(int(len(self.edges)))]
             if frame%5 == 0:
                 self.add_point()
             else:
@@ -376,6 +375,8 @@ class Dcel:
             for i,edge in enumerate(edges):
                 if (len(lines) > i):
                     lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
+                else:
+                    lines.append(plt.plot([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]],'bo-')[0])
             return lines+[angle_text,iteration]
         ani = animation.FuncAnimation(fig, animate, init_func=init,interval=10, blit=True)
 #        ani.save('mover_legalizar.mp4', fps=30, extra_args=['-vcodec', 'libx264'])

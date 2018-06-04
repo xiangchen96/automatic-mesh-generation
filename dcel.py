@@ -170,10 +170,8 @@ class Face:
         
 class Dcel:
     
-    def __init__(self,points,polygon=None):
+    def __init__(self,points):
         tesselation = Delaunay(points)
-        if polygon:
-            self.polygon = [[polygon[i],polygon[(i+1)%len(polygon)]] for i in range(len(polygon))]
         self.alpha = None
         self.min_x = None
         self.max_x = None
@@ -185,26 +183,26 @@ class Dcel:
         self.edges = []
         for point in tesselation.points:
             self.vertices.append(Vertex(list(point)))
-            if not self.min_x or point[0] < self.min_x:
-                self.min_x = point[0]
-            if not self.max_x or point[0] > self.max_x:
-                self.max_x = point[0]
-            if not self.min_y or point[1] < self.min_y:
-                self.min_y = point[1]
-            if not self.max_y or point[1] > self.max_y:
-                self.max_y = point[1]
+            if not self.min_x or point[0] < self.min_x: self.min_x = point[0]
+            if not self.max_x or point[0] > self.max_x: self.max_x = point[0]
+            if not self.min_y or point[1] < self.min_y: self.min_y = point[1]
+            if not self.max_y or point[1] > self.max_y: self.max_y = point[1]
         for a,b,c in tesselation.simplices:
             edges[(a,b)] = Edge(self.vertices[a])
             edges[(b,c)] = Edge(self.vertices[b])
             edges[(c,a)] = Edge(self.vertices[c])
+            
             self.edges.append(edges[(a,b)])
-            self.vertices[a].edge = edges[(a,b)]
             self.edges.append(edges[(b,c)])
-            self.vertices[b].edge = edges[(b,c)]
             self.edges.append(edges[(c,a)])
+            
+            self.vertices[a].edge = edges[(a,b)]
+            self.vertices[b].edge = edges[(b,c)]
             self.vertices[c].edge = edges[(c,a)]
+            
             face = Face(edges[(a,b)])
             self.faces.append(face)
+            
             edges[(a,b)].face = face
             edges[(b,c)].face = face
             edges[(c,a)].face = face
@@ -227,8 +225,6 @@ class Dcel:
             if (a,c) in edges:
                 edges[(a,c)].twin = edges[(c,a)]
                 edges[(c,a)].twin = edges[(a,c)]
-        if polygon:
-            self.enforce_edges()
     
     @classmethod
     def deloneFromPolygonFile(cls,fileName):
@@ -299,23 +295,6 @@ class Dcel:
         k.edge = newEdge
     
         self.faces.append(newFace)
-            
-    def legalize(self):
-        flipped = True
-        lastChanged = []
-        while flipped:
-            changed = []
-            flipped = False
-            for edge in self.edges:
-                if not edge.is_legal(self.faces[0]):
-                    changed.append(edge)
-                    edge.flip()
-                    flipped = True
-            if changed in lastChanged:
-                return
-            else:
-                lastChanged.append(changed)
-        return
     
     def contains_edge(self,searched_edge):
         for edge in self.edges:

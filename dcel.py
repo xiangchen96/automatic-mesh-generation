@@ -3,7 +3,7 @@ import numpy as np
 import utilidades as utils
 from matplotlib import animation
 import collections
-from scipy.spatial import Delaunay
+from scipy.spatial import Delaunay,ConvexHull
 
 class Vertex:
     """ 2-D Vertex with coordinates and an Edge """

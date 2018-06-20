@@ -1,12 +1,9 @@
 import dcel
 import numpy as np
-import triangle
-import triangle.plot as plot
 import matplotlib.pyplot as plt
 import time
 
-#fileName = input("Introduzca el nombre del archivo de puntos:")
-fileName = "puntos2"
+fileName = input("Introduzca el nombre del archivo de puntos:")
 
 D = dcel.Dcel.deloneFromPolygonFile(fileName)
 f = open(fileName,"r")
@@ -17,31 +14,14 @@ for i in range(number_of_points):
     x,y = line.split(" ")
     puntos.append([float(x),float(y)])
     
-#alpha = int(input("Introduzca el alpha (angulo minimo):"))
-alpha = 20
-
+alpha = int(input("Introduzca el alpha (angulo minimo):"))
 D.alpha = alpha
 
 print("\nPoligono inicial con angulo minimo %d:\n"%D.get_minimun_angle())
 D.plotPolygon()
 
-#points_and_segments = {'vertices':np.array(puntos), 
-#                       'segments':np.array([[i,(i+1)%len(puntos)] for i in range(len(puntos))])} 
-#
-#t0 = time.time()
-#triangulation = triangle.triangulate(points_and_segments, 'pq'+str(alpha))
-#print("Tiempo triangle: ",time.time()-t0)
-#
-#ax = plt.axes()
-#plot.plot(ax, **triangulation)
-#plt.show()
-#print("vertices añadidos:",len(triangulation['vertices'])-number_of_points)
+D.generate_mesh()
+D.plotPolygon()
 
-D.animate_main()
-#t0 = time.time()
-# D.generate_mesh()
-#print("Tiempo fuerzas: ",time.time()-t0)
-# D.plotPolygon()
-
-print("angulo ",D.get_minimun_angle())
-print("vertices añadidos", len(D.vertices)-number_of_points)
+print("angulo:",D.get_minimun_angle())
+print("vertices nuevos:", len(D.vertices)-number_of_points)

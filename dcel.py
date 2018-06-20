@@ -405,8 +405,8 @@ class Dcel:
     
     def iterate_forces(self):
         polygon_vertices = [arista[0] for arista in self.polygon]
-        for vertex in self.vertices:
-            if vertex.coords in self.splitted:
+        for i,vertex in enumerate(self.vertices):
+            if i in self.splitted:
                 for a,b in self.polygon:
                     if a == vertex.coords:
                         vertex.add_force_vector(b)
@@ -426,8 +426,8 @@ class Dcel:
     def animate_main(self):
         fig = plt.figure()
         ax = plt.axes(xlim=(self.min_x-1,self.max_x+1), ylim=(self.min_y-1, self.max_y+1))
-        angle_text = plt.text(self.max_x-5, self.max_y, '', fontsize=10)
-        iteration = plt.text(self.max_x-2, self.max_y-1, '', fontsize=10)
+        angle_text = plt.text(self.max_x/2, self.max_y, '', fontsize=10)
+        iteration = plt.text(self.max_x/2, self.max_y-1, '', fontsize=10)
         
         lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.edges))]
         def init():
@@ -455,8 +455,8 @@ class Dcel:
                 else:
                     lines.append(plt.plot([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]],'bo-')[0])
             return lines+[angle_text,iteration]
-        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=10, blit=True,save_count=240)
-        ani.save('main.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
+        ani = animation.FuncAnimation(fig, animate, init_func=init,interval=10, blit=True)
+        # ani.save('main.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
         plt.show()
     
     def get_interior_triangles(self):
@@ -542,7 +542,7 @@ class Dcel:
                 self.polygon.insert(i+1,[new_point,a])
                 
         puntos = [vertex.coords for vertex in self.vertices]+[new_point]
-        self.splitted.append(new_point)
+        self.splitted.append(len(puntos)-1)
         D = Dcel(puntos)
         D.polygon = self.polygon
         self.vertices = D.vertices

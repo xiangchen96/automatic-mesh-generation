@@ -8,33 +8,28 @@ from math import acos, degrees
 
 #FUNCIONES AUXILIARES
 def sarea(A,B,C):
-    """Calcula el area signada del triangulo formado por los puntos ordenados A,B,C"""
-    return ((B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1]))/2
+    """Calcula el area signada del triangulo A,B,C."""
+    return 0.5*((B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1]))
 
 def segment_crossing(a,b):
-    """Devuelve True si el segmento a interseca con el segmento b"""
+    """Devuelve True si el segmento a interseca con b."""
     A,B,C,D = a[0],a[1],b[0],b[1]
     return (sarea(A,B,C)*sarea(A,B,D))<0 and (sarea(C,D,A)*sarea(C,D,B)<0)
 
 def pointInPolygon(Q,p):
-    """Devuelve True si el punto Q esta dentro del poligono p"""
+    """Devuelve True si el punto Q esta contenido en el poligono p."""
     path = mpltPath.Path(p)
-    inside = path.contains_points([Q])
-    return inside
+    return path.contains_points([Q])
 
 def get_angles(a,b,c):
-    """Devuelve una lista de los ángulos del triángulo a,b,c"""
+    """Devuelve la lista de angulos del triangulo con aristas de longitud a,b,c"""
     get_angle = lambda a, b, c: degrees(acos((b*b+c*c-a*a)/(float(2*b*c))))
     if a + b <= c or b + c <= a or c + a <= b:
         return [0, 0, 0]
     return [get_angle(a, b, c), get_angle(b, c, a), get_angle(c, a, b)]
 
-def orientation(A,B,C):
-	"""Calcula la orientacion del triangulo formado por los puntos A,B,C"""
-	return np.sign(((B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1])))
-
 def in_circle(a,b,c,d):
-	"""Devuelve true si el punto d se encuentra dentro del circulo que pasa por a,b,c"""
+	"""Devuelve True si el punto d se encuentra dentro del circulo que pasa por a,b,c."""
 	sa=sarea(a,b,c)
 	if sa==0:
 		return
@@ -49,51 +44,47 @@ def svolume(a,b,c,d):
 	return np.linalg.det(arr)/6
 
 class Vertex:
-    """ 2-D Vertex with coordinates and an Edge """
+    """Nodo vertice de un DCEL"""
     
     def __init__(self,coords,edge=None):
         self.coords = coords
         self.edge = edge
     
     def get_edges(self):
-        e0 = self.edge
-        edges = [e0]
-        e = e0.prev.twin
-        while e != e0:
-            edges.append(e)
+        yield self.edge
+        e = self.edge.prev.twin
+        while e != self.edge:
+            yield e
             e = e.prev.twin
-        return edges
     
     def get_neighbours(self):
-        edges = self.get_edges()
-        return [edge.next.origin for edge in edges]
-    
-    def get_faces(self):
-        edges = self.get_edges()
-        return [edge.face for edge in edges]
+        for edge in self.get_edges():
+            yield edge.next.origin
     
     def _get_force_vector(self):
-        vectors = []
+        vector = [0,0]
         for vertex in self.get_neighbours():
             x,y = vertex.coords
             my_x, my_y = self.coords
-            vectors.append([x-my_x, y-my_y])
-        vector = [sum(v[0] for v in vectors),sum(v[1] for v in vectors)]
+            vector[0] += x-my_x
+            vector[1] += y-my_y
         return vector
     
     def add_force_vector(self, point_projection=None, coef=0.05):
         force = self._get_force_vector()
+        
         if point_projection:
             vector_project = [point_projection[0]-self.coords[0],
-                          point_projection[1]-self.coords[1]]
-            aux = (vector_project[0]*force[0] + vector_project[1]*force[1]) \
-                  /(vector_project[0]**2 + vector_project[1]**2)
+                              point_projection[1]-self.coords[1]]
+            aux = (vector_project[0]*force[0] + vector_project[1]*force[1])
+            aux = aux/(vector_project[0]**2 + vector_project[1]**2)
             force = [aux*vector_project[0],aux*vector_project[1]]
+            
         self.coords[0] = self.coords[0] + force[0]*coef
         self.coords[1] = self.coords[1] + force[1]*coef
     
 class Edge:
-    """ 2-D Edge with an Origin Vertex, twin edge, previous edge and next edge """
+    """Semiarista de un DCEL"""
     
     def __init__(self, origin, twin=None, prev=None, next_=None, face=None):
         self.origin = origin
@@ -161,23 +152,6 @@ class Edge:
         return -1 not in np.sign([sarea(A,B,C),sarea(A,C,D),
                                   sarea(B,C,D),sarea(B,D,A)])
     
-    def remove(self):
-        twin = self.twin
-        prev = self.prev
-        prev.next = twin.next
-        prev.face = twin.face
-        
-        next_ = self.next
-        next_.prev = twin.prev
-        next_.face = twin.face
-        
-        twin.next.prev = self.prev
-        twin.prev.next = self.next
-        twin.face.edge = twin.prev
-        
-        self.origin.edge = twin.next
-        twin.origin.edge = self.next
-    
     def mid_point(self):
         coords_1 = self.origin.coords
         coords_2 = self.next.origin.coords
@@ -192,8 +166,8 @@ class Edge:
         B = self.twin.prev.origin.coords
         C = self.next.origin.coords
         D = self.next.next.origin.coords
-        if -1 in [orientation(A,B,C),orientation(A,C,D),
-                  orientation(B,C,D),orientation(B,D,A)]:
+        if -1 in np.sign([sarea(A,B,C),sarea(A,C,D),
+                          sarea(B,C,D),sarea(B,D,A)]):
             return True
         else:
             return in_circle(A,C,D,B)==-1
@@ -307,60 +281,28 @@ class Dcel:
         f.close()
         return D
     
+    @classmethod
+    def deloneFromPolygon(cls,points):
+        D = cls(points)
+        D.polygon = [[points[i],points[(i+1)%len(points)]] for i in range(len(points))]
+        D.enforce_edges()
+        return D
+    
     def plotPolygon(self):
-        if self.polygon:
-            plt.axes().set_aspect('equal')
-            points = np.array([vertex.coords for vertex in self.vertices])
-            simplices = []
-            for face in self.get_interior_triangles():
-                a,b,c = face.getVertices()
-                simplices.append([self.vertices.index(a),self.vertices.index(b),self.vertices.index(c)])
-            plt.triplot(points[:,0], points[:,1], simplices, 'o-')
-            plt.show()
+        plt.axes().set_aspect('equal')
+        for face in self.get_interior_triangles():
+            a,b,c = face.getVertices()
+            plt.triplot([a.coords[0],b.coords[0],c.coords[0]], 
+                        [a.coords[1],b.coords[1],c.coords[1]], 'bo-')
+        plt.show()
     
     def plot(self):
-        plotted = []
         plt.axes().set_aspect('equal')
-        for edge in self.edges:
-            if edge.twin not in plotted:
-                plotted.append(edge)
-                plt.plot([edge.origin.coords[0],edge.next.origin.coords[0]],
-                         [edge.origin.coords[1],edge.next.origin.coords[1]],'bo-')
+        for face in self.faces[1:]:
+            a,b,c = face.getVertices()
+            plt.triplot([a.coords[0],b.coords[0],c.coords[0]], 
+                        [a.coords[1],b.coords[1],c.coords[1]], 'bo-')
         plt.show()
-        
-    def splitFace(self,e1,e2):
-        if (e1.face != e2.face or 
-            e2.origin == e1.twin.origin or 
-            e1.origin == e2.twin.origin):
-            return "no diagonal"
-        
-        newEdge = Edge(e1.origin, None, e1.prev, e2, e1.face)
-        twinNewEdge = Edge(e2.origin, None, e2.prev, e1, None)
-        
-        newEdge.twin = twinNewEdge
-        twinNewEdge.twin = newEdge
-        
-        newFace = Face(twinNewEdge)
-        twinNewEdge.face = newFace
-        
-        k = e1.face
-        
-        self.edges.append(newEdge)
-        self.edges.append(twinNewEdge)
-        
-        e1.prev.next = newEdge
-        e1.prev = twinNewEdge
-        e2.prev.next = twinNewEdge
-        e2.prev = newEdge
-        
-        i = e1
-        while i != twinNewEdge:
-            i.face = newFace
-            i = i.next
-    
-        k.edge = newEdge
-    
-        self.faces.append(newFace)
     
     def contains_edge(self,searched_edge):
         for edge in self.edges:
@@ -425,9 +367,8 @@ class Dcel:
     
     def animate_main(self):
         fig = plt.figure()
-        ax = plt.axes(xlim=(self.min_x-1,self.max_x+1), ylim=(self.min_y-1, self.max_y+1))
-        angle_text = plt.text(self.max_x/2, self.max_y, '', fontsize=10)
-        iteration = plt.text(self.max_x/2, self.max_y-1, '', fontsize=10)
+        plt.axes(xlim=(self.min_x-1,self.max_x+1), ylim=(self.min_y-1, self.max_y+1))
+        angle_text = plt.text((self.max_x+self.min_x)/2, self.max_y, '', fontsize=10)
         
         lines = [plt.plot([], [],'bo-')[0] for _ in range(len(self.edges))]
         def init():
@@ -442,8 +383,7 @@ class Dcel:
             angle = self.get_minimun_angle()
             if angle >= self.alpha:
                 ani.event_source.stop()
-            angle_text.set_text("min_angle: "+str(int(angle)))
-            iteration.set_text("iter: "+str(frame))
+            angle_text.set_text("min_angle: "+str(int(angle))+" iter: "+str(frame))
             edges = []
             for face in self.get_interior_triangles():
                 for edge in face.get_edges():
@@ -454,31 +394,30 @@ class Dcel:
                     lines[i].set_data([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]])
                 else:
                     lines.append(plt.plot([edge[0][0],edge[1][0]],[edge[0][1],edge[1][1]],'bo-')[0])
-            return lines+[angle_text,iteration]
+            return lines+[angle_text]
         ani = animation.FuncAnimation(fig, animate, init_func=init,interval=10, blit=True)
         # ani.save('main.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
         plt.show()
     
     def get_interior_triangles(self):
-        """ Returns [points, interiorSimplices] """
         poly = [i[0] for i in self.polygon]
         triangles = [face.getVertices() for face in self.faces[1:]]
-        faces = []
         for i,(a,b,c) in enumerate(triangles):
              x = (a.coords[0]+b.coords[0]+c.coords[0])/3
              y = (a.coords[1]+b.coords[1]+c.coords[1])/3
              if pointInPolygon([x,y],poly):
-                 faces.append(self.faces[i+1])
-        return faces
+                 yield self.faces[i+1]
     
     def isConstrained(self,edge):
-        if [edge.origin.coords,edge.destino().coords] in self.polygon:
+        a = edge.origin.coords
+        b = edge.destino().coords
+        if [a,b] in self.polygon or [b,a] in self.polygon:
             return True
-        if [edge.destino().coords,edge.origin.coords] in self.polygon:
-            return True
-        return False
+        else:
+            return False
     
     def add_point(self):
+        """TODO"""
         new_point = None
         face = self.get_face_with_min_angle()
         a,b,c = face.getVertices()
@@ -512,22 +451,19 @@ class Dcel:
         self.faces = D.faces
             
     def get_minimun_angle(self):
-        angles = []
-        if self.polygon:
-            for face in self.get_interior_triangles():
-                a,b,c = face.getVertices()
-                a1 = np.linalg.norm([a.coords[0]-b.coords[0],
-                  a.coords[1]-b.coords[1]])
-                a2 = np.linalg.norm([a.coords[0]-c.coords[0],
-                  a.coords[1]-c.coords[1]])
-                a3 = np.linalg.norm([c.coords[0]-b.coords[0],
-                  c.coords[1]-b.coords[1]])
-                angles += get_angles(a1,a2,a3)
-        else:
-            for face in self.faces[1:]:
-                a,b,c = (edge.get_length() for edge in face.get_edges())
-                angles += get_angles(a,b,c)
-        return min(angles)
+        min_angle = 100
+        for face in self.get_interior_triangles():
+            a,b,c = face.getVertices()
+            a1 = np.linalg.norm([a.coords[0]-b.coords[0],
+              a.coords[1]-b.coords[1]])
+            a2 = np.linalg.norm([a.coords[0]-c.coords[0],
+              a.coords[1]-c.coords[1]])
+            a3 = np.linalg.norm([c.coords[0]-b.coords[0],
+              c.coords[1]-b.coords[1]])
+            angle = min(get_angles(a1,a2,a3))
+            if angle < min_angle:
+                min_angle = angle
+        return min_angle
     
     def splitEdge(self,split):
         new_point = split.mid_point()

@@ -29,7 +29,7 @@ print("angulo:",D.get_minimun_angle())
 print("vertices nuevos:", len(D.vertices)-number_of_points)
 ```
 ## Fichero de entrada
-El fichero de entrada debe contener el número de puntos y sus coordenadas x,y.
+El polígono estará representado por un conjunto de puntos ordenados. El fichero de entrada debe contener el número total de puntos y sus coordenadas x,y.
 ```
 4
 -2.42 3.02

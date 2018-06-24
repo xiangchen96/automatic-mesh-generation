@@ -4,6 +4,7 @@ Trabajo Fin de Grado
 - Tutor: Manuel Abellanas Oar
 
 <img src="https://thumbs.gfycat.com/AppropriateHighlevelBobwhite-size_restricted.gif" width="400" height="300"/>
+
 ## Descripción
 Dado un polígono simple y un ángulo *α*, genera una malla de triángulos con ángulo mínimo >= *α*. Hace uso de la inserción de puntos de Steiner, partición de aristas restringidas y método de las fuerzas.
 

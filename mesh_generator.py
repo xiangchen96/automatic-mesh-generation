@@ -497,7 +497,8 @@ class Dcel:
                 min_angle = minimo
         return min_face,min_angle
     
-    def generate_mesh(self, max_iterations=500):
+    def generate_mesh(self, alpha=20, max_iterations=500):
+        self.alpha = alpha
         iteration = 0
         while self.get_minimun_angle() < self.alpha and iteration < max_iterations:
             if iteration%10 == 0:

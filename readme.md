@@ -10,19 +10,20 @@ Dado un polígono simple y un ángulo *α*, genera una malla de triángulos con 
 
 ## Ejemplo de uso
 ```python
-import dcel
+import mesh_generator
 
 fileName = input("Introduzca el nombre del archivo de puntos:")
 
-D = dcel.Dcel.deloneFromPolygonFile(fileName)
+D = mesh_generator.Dcel.deloneFromPolygonFile(fileName)
+with open(fileName,'r') as f:
+    number_of_points = int(f.readline())
 
-alpha = int(input("Introduzca el alpha (angulo minimo):"))
-D.alpha = alpha
+alpha = float(input("Introduzca el alpha (angulo minimo):"))
 
 print("\nPoligono inicial con angulo minimo %d:\n"%D.get_minimun_angle())
 D.plotPolygon()
 
-D.generate_mesh()
+D.generate_mesh(alpha,1000)
 D.plotPolygon()
 
 print("angulo:",D.get_minimun_angle())

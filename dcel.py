@@ -43,6 +43,12 @@ def svolume(a,b,c,d):
 					[a[0]**2+a[1]**2,b[0]**2+b[1]**2, c[0]**2+c[1]**2,d[0]**2+d[1]**2]])
 	return np.linalg.det(arr)/6
 
+def project_vector(vector, vector_project):
+    """Proyeccion vectorial de vector sobre vector_project"""
+    aux = vector_project[0]*vector[0] + vector_project[1]*vector[1]
+    aux = aux / (vector_project[0]**2 + vector_project[1]**2)
+    return [aux*vector_project[0],aux*vector_project[1]]
+
 class Vertex:
     """Nodo vertice de un DCEL"""
     
@@ -51,6 +57,7 @@ class Vertex:
         self.edge = edge
     
     def get_edges(self):
+        """Generador de aristas adyacentes"""
         yield self.edge
         e = self.edge.prev.twin
         while e != self.edge:
@@ -58,10 +65,12 @@ class Vertex:
             e = e.prev.twin
     
     def get_neighbours(self):
+        """Generador de vertices adyacentes"""
         for edge in self.get_edges():
             yield edge.next.origin
     
     def _get_force_vector(self):
+        """Vector suma de vertices adyacentes"""
         vector = [0,0]
         for vertex in self.get_neighbours():
             x,y = vertex.coords
@@ -70,15 +79,13 @@ class Vertex:
             vector[1] += y-my_y
         return vector
     
-    def add_force_vector(self, point_projection=None, coef=0.05):
+    def add_force_vector(self, point=None, coef=0.05):
+        """Mueve el punto en la direccion del vector suma (proyectado)"""
         force = self._get_force_vector()
         
-        if point_projection:
-            vector_project = [point_projection[0]-self.coords[0],
-                              point_projection[1]-self.coords[1]]
-            aux = (vector_project[0]*force[0] + vector_project[1]*force[1])
-            aux = aux/(vector_project[0]**2 + vector_project[1]**2)
-            force = [aux*vector_project[0],aux*vector_project[1]]
+        if point:
+            vector_project = [point[0]-self.coords[0],point[1]-self.coords[1]]
+            force = project_vector(force,vector_project)
             
         self.coords[0] = self.coords[0] + force[0]*coef
         self.coords[1] = self.coords[1] + force[1]*coef
@@ -102,7 +109,10 @@ class Edge:
         return self.next.origin
     
     def flip(self):
-        
+        """
+        Gira la arista, la cambia por la otra diagonal del cuadrilatero que
+        forman sus triangulos
+        """
         twin = self.twin
         origin = self.origin
         face = self.face
@@ -178,17 +188,15 @@ class Face:
         self.edge = edge
     
     def get_edges(self):
-        edge = self.edge
-        edges= [edge]
-        edge = edge.next
-        while edge != edges[0]:
-            edges.append(edge)
+        yield self.edge
+        edge = self.edge.next
+        while edge != self.edge:
+            yield edge
             edge = edge.next
-        return edges
     
     def getVertices(self):
-        edges = self.get_edges()
-        return [edge.origin for edge in edges]
+        for edge in self.get_edges():
+            yield edge.origin
         
 class Dcel:
     
@@ -306,8 +314,9 @@ class Dcel:
     
     def contains_edge(self,searched_edge):
         for edge in self.edges:
-            if (edge.origin.coords in searched_edge and 
-                edge.next.origin.coords in searched_edge):
+            if [edge.origin.coords,edge.next.origin.coords] == searched_edge:
+                return True
+            if [edge.next.origin.coords,edge.origin.coords] == searched_edge:
                 return True
         return False
     
@@ -419,15 +428,10 @@ class Dcel:
     def add_point(self):
         """TODO"""
         new_point = None
-        face = self.get_face_with_min_angle()
+        face,_ = self.get_face_with_min_angle()
+        e1,e2,e3 = map(Edge.get_length,face.get_edges())
         a,b,c = face.getVertices()
-        a1 = np.linalg.norm([a.coords[0]-b.coords[0],
-          a.coords[1]-b.coords[1]])
-        a2 = np.linalg.norm([a.coords[0]-c.coords[0],
-          a.coords[1]-c.coords[1]])
-        a3 = np.linalg.norm([c.coords[0]-b.coords[0],
-          c.coords[1]-b.coords[1]])
-        for angle in get_angles(a1,a2,a3):
+        for angle in get_angles(e1,e2,e3):
             if angle < self.alpha:
                 for edge in face.get_edges():
                     if self.isConstrained(edge):
@@ -449,20 +453,16 @@ class Dcel:
         self.vertices = D.vertices
         self.edges = D.edges
         self.faces = D.faces
+        self.enforce_edges()
+        
             
     def get_minimun_angle(self):
-        min_angle = 100
+        min_angle = 1000
         for face in self.get_interior_triangles():
-            a,b,c = face.getVertices()
-            a1 = np.linalg.norm([a.coords[0]-b.coords[0],
-              a.coords[1]-b.coords[1]])
-            a2 = np.linalg.norm([a.coords[0]-c.coords[0],
-              a.coords[1]-c.coords[1]])
-            a3 = np.linalg.norm([c.coords[0]-b.coords[0],
-              c.coords[1]-b.coords[1]])
-            angle = min(get_angles(a1,a2,a3))
-            if angle < min_angle:
-                min_angle = angle
+            e1,e2,e3 = map(Edge.get_length,face.get_edges())
+            minimo = min(get_angles(e1,e2,e3))
+            if minimo < min_angle:
+                min_angle = minimo
         return min_angle
     
     def splitEdge(self,split):
@@ -476,7 +476,7 @@ class Dcel:
             if (edge[0] == b and edge[1] == a):
                 edge[1] = new_point
                 self.polygon.insert(i+1,[new_point,a])
-                
+                break
         puntos = [vertex.coords for vertex in self.vertices]+[new_point]
         self.splitted.append(len(puntos)-1)
         D = Dcel(puntos)
@@ -484,23 +484,18 @@ class Dcel:
         self.vertices = D.vertices
         self.edges = D.edges
         self.faces = D.faces
+        self.enforce_edges()
     
     def get_face_with_min_angle(self):
         min_face = None
         min_angle = 1000
         for face in self.get_interior_triangles():
-            a,b,c = face.getVertices()
-            a1 = np.linalg.norm([a.coords[0]-b.coords[0],
-              a.coords[1]-b.coords[1]])
-            a2 = np.linalg.norm([a.coords[0]-c.coords[0],
-              a.coords[1]-c.coords[1]])
-            a3 = np.linalg.norm([c.coords[0]-b.coords[0],
-              c.coords[1]-b.coords[1]])
-            minimo = min(get_angles(a1,a2,a3))
+            e1,e2,e3 = map(Edge.get_length,face.get_edges())
+            minimo = min(get_angles(e1,e2,e3))
             if minimo < min_angle:
                 min_face = face
                 min_angle = minimo
-        return min_face
+        return min_face,min_angle
     
     def generate_mesh(self, max_iterations=500):
         iteration = 0

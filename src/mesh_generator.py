@@ -23,8 +23,7 @@ class Vertex:
 
     @property
     def neighbours(self):
-        for edge in self.edges:
-            yield edge.next.origin
+        return (edge.next.origin for edge in self.edges)
 
     @property
     def force_vector(self):
@@ -37,7 +36,7 @@ class Vertex:
             vector[1] += y-my_y
         return vector
 
-    def add_force_vector(self, point=None, coef=0.05):
+    def add_force_vector(self, point=None, step=0.05):
         """Mueve el punto en la direccion del vector suma (proyectado)"""
         force = self.force_vector
 
@@ -45,12 +44,12 @@ class Vertex:
             vector_project = [point[0]-self.coords[0], point[1]-self.coords[1]]
             force = project_vector(force, vector_project)
 
-        self.coords[0] = self.coords[0] + force[0]*coef
-        self.coords[1] = self.coords[1] + force[1]*coef
+        self.coords[0] = self.coords[0] + force[0]*step
+        self.coords[1] = self.coords[1] + force[1]*step
 
 
 class Edge:
-    """Semiarista de un DCEL"""
+    """Half Edge"""
 
     def __init__(self, origin, twin=None, prev=None, next_=None, face=None):
         self.origin = origin
@@ -69,10 +68,17 @@ class Edge:
     def destination(self):
         return self.next.origin
 
+    @property
+    def mid_point(self):
+        origin = self.origin.coords
+        destination = self.next.origin.coords
+        x = (origin[0]+destination[0]) / 2
+        y = (origin[1]+destination[1]) / 2
+        return [x, y]
+
     def flip(self):
         """
-        Gira la arista, la cambia por la otra diagonal del cuadrilatero que
-        forman sus triangulos
+        Flip an edge into the oposite diagonal of the quadilateral
         """
         twin = self.twin
         origin = self.origin
@@ -123,13 +129,6 @@ class Edge:
         return -1 not in np.sign([sarea(A, B, C), sarea(A, C, D),
                                   sarea(B, C, D), sarea(B, D, A)])
 
-    def mid_point(self):
-        coords_1 = self.origin.coords
-        coords_2 = self.next.origin.coords
-        x = (coords_1[0]+coords_2[0]) / 2
-        y = (coords_1[1]+coords_2[1]) / 2
-        return [x, y]
-
     def is_legal(self, face0):
         if self.face == face0 or self.twin.face == face0:
             return True
@@ -159,8 +158,7 @@ class Face:
 
     @property
     def vertices(self):
-        for edge in self.edges:
-            yield edge.origin
+        return (edge.origin for edge in self.edges)
 
 
 class Dcel:
@@ -245,6 +243,38 @@ class Dcel:
                     edges[c, d].prev = edges[a, b]
                     break
 
+    @property
+    def minimum_angle(self):
+        result = 1000
+        for face in self.interior_triangles:
+            e1, e2, e3 = (edge.length for edge in face.edges)
+            minimum = min(get_angles(e1, e2, e3))
+            if minimum < result:
+                result = minimum
+        return result
+
+    @property
+    def interior_triangles(self):
+        poly = [i[0] for i in self.polygon]
+        triangles = [face.vertices for face in self.faces[1:]]
+        for i, (a, b, c) in enumerate(triangles):
+            x = (a.coords[0]+b.coords[0]+c.coords[0])/3
+            y = (a.coords[1]+b.coords[1]+c.coords[1])/3
+            if pointInPolygon([x, y], poly):
+                yield self.faces[i+1]
+
+    @property
+    def face_with_min_angle(self):
+        min_face = None
+        min_angle = 1000
+        for face in self.interior_triangles:
+            e1, e2, e3 = (edge.length for edge in face.edges)
+            minimo = min(get_angles(e1, e2, e3))
+            if minimo < min_angle:
+                min_face = face
+                min_angle = minimo
+        return min_face, min_angle
+
     @classmethod
     def deloneFromPolygonFile(cls, fileName):
         f = open(fileName, 'r')
@@ -269,7 +299,7 @@ class Dcel:
 
     def plotPolygon(self):
         plt.axes().set_aspect('equal')
-        for face in self.get_interior_triangles():
+        for face in self.interior_triangles:
             a, b, c = face.vertices
             plt.triplot([a.coords[0], b.coords[0], c.coords[0]],
                         [a.coords[1], b.coords[1], c.coords[1]], 'bo-')
@@ -285,9 +315,9 @@ class Dcel:
 
     def contains_edge(self, searched_edge):
         for edge in self.edges:
-            if [edge.origin.coords, edge.next.origin.coords] == searched_edge:
-                return True
-            if [edge.next.origin.coords, edge.origin.coords] == searched_edge:
+            o = edge.origin.coords
+            d = edge.next.origin.coords
+            if [o, d] == searched_edge or [d, o] == searched_edge:
                 return True
         return False
 
@@ -326,7 +356,7 @@ class Dcel:
                         swap = True
 
     def iterate_forces(self):
-        polygon_vertices = [arista[0] for arista in self.polygon]
+        polygon_vertices = [edge[0] for edge in self.polygon]
         for i, vertex in enumerate(self.vertices):
             if i in self.splitted:
                 for a, b in self.polygon:
@@ -366,7 +396,7 @@ class Dcel:
                 ani.event_source.stop()
             angle_text.set_text(f'min_angle: {angle:.2f} iter: {frame}')
             edges = []
-            for face in self.get_interior_triangles():
+            for face in self.interior_triangles:
                 for edge in face.edges:
                     if [edge.next.origin.coords, edge.origin.coords] not in edges:
                         edges.append([edge.origin.coords, edge.next.origin.coords])
@@ -380,27 +410,18 @@ class Dcel:
         # ani.save('main.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
         plt.show()
 
-    def get_interior_triangles(self):
-        poly = [i[0] for i in self.polygon]
-        triangles = [face.vertices for face in self.faces[1:]]
-        for i, (a, b, c) in enumerate(triangles):
-            x = (a.coords[0]+b.coords[0]+c.coords[0])/3
-            y = (a.coords[1]+b.coords[1]+c.coords[1])/3
-            if pointInPolygon([x, y], poly):
-                yield self.faces[i+1]
-
     def isConstrained(self, edge):
-        a = edge.origin.coords
-        b = edge.destination.coords
-        if [a, b] in self.polygon or [b, a] in self.polygon:
-            return True
-        else:
-            return False
+        o = edge.origin.coords
+        d = edge.destination.coords
+        for (a, b) in self.polygon:
+            if (o, d) == (a, b) or (o, d) == (b, a):
+                return True
+        return False
 
     def add_point(self):
         """TODO"""
         new_point = None
-        face, _ = self.get_face_with_min_angle()
+        face, _ = self.face_with_min_angle
         e1, e2, e3 = (edge.length for edge in face.edges)
         a, b, c = face.vertices
         for angle in get_angles(e1, e2, e3):
@@ -426,18 +447,8 @@ class Dcel:
         self.faces = D.faces
         self.enforce_edges()
 
-    @property
-    def minimum_angle(self):
-        min_angle = 1000
-        for face in self.get_interior_triangles():
-            e1, e2, e3 = (edge.length for edge in face.edges)
-            minimo = min(get_angles(e1, e2, e3))
-            if minimo < min_angle:
-                min_angle = minimo
-        return min_angle
-
     def splitEdge(self, split):
-        new_point = split.mid_point()
+        new_point = split.mid_point
         a, b = split.origin.coords, split.destination.coords
         for i, edge in enumerate(self.polygon):
             if (edge[0] == a and edge[1] == b):
@@ -456,17 +467,6 @@ class Dcel:
         self.edges = D.edges
         self.faces = D.faces
         self.enforce_edges()
-
-    def get_face_with_min_angle(self):
-        min_face = None
-        min_angle = 1000
-        for face in self.get_interior_triangles():
-            e1, e2, e3 = (edge.length for edge in face.edges)
-            minimo = min(get_angles(e1, e2, e3))
-            if minimo < min_angle:
-                min_face = face
-                min_angle = minimo
-        return min_face, min_angle
 
     def generate_mesh(self, alpha=20, max_iterations=500):
         self.alpha = alpha

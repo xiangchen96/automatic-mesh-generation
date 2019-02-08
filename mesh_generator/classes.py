@@ -1,13 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import animation
 import collections
+
+from matplotlib import animation
 from scipy.spatial import Delaunay
-from utilities import *
+
+from .utilities import *
 
 
 class Vertex:
-    """Nodo vertice de un DCEL"""
+    """DCEL Vertex"""
 
     def __init__(self, coords, edge=None):
         self.coords = coords

@@ -168,10 +168,10 @@ class Dcel:
     def __init__(self, points):
         tesselation = Delaunay(points)
         self.alpha = None
-        self.min_x = None
-        self.max_x = None
-        self.min_y = None
-        self.max_y = None
+        self.min_x = points[0][0]
+        self.max_x = points[0][0]
+        self.min_y = points[0][1]
+        self.max_y = points[0][1]
         edges = collections.defaultdict()
         self.vertices = []
         self.faces = [Face()]
@@ -179,13 +179,13 @@ class Dcel:
         self.splitted = []
         for point in points:
             self.vertices.append(Vertex(point))
-            if not self.min_x or point[0] < self.min_x:
+            if point[0] < self.min_x:
                 self.min_x = point[0]
-            if not self.max_x or point[0] > self.max_x:
+            if point[0] > self.max_x:
                 self.max_x = point[0]
-            if not self.min_y or point[1] < self.min_y:
+            if point[1] < self.min_y:
                 self.min_y = point[1]
-            if not self.max_y or point[1] > self.max_y:
+            if point[1] > self.max_y:
                 self.max_y = point[1]
         for a, b, c in tesselation.simplices:
             edges[(a, b)] = Edge(self.vertices[a])
@@ -376,7 +376,7 @@ class Dcel:
         self.faces = D.faces
         self.enforce_edges()
 
-    def animate_main(self):
+    def animate_main(self, output=None):
         fig = plt.figure()
         plt.axes(xlim=(self.min_x-1, self.max_x+1), ylim=(self.min_y-1, self.max_y+1))
         angle_text = plt.text((self.max_x+self.min_x)/2, self.max_y, '', fontsize=10)
@@ -403,14 +403,19 @@ class Dcel:
                     if [edge.next.origin.coords, edge.origin.coords] not in edges:
                         edges.append([edge.origin.coords, edge.next.origin.coords])
             for i, edge in enumerate(edges):
-                if (len(lines) > i):
+                if len(lines) > i:
                     lines[i].set_data([edge[0][0], edge[1][0]], [edge[0][1], edge[1][1]])
                 else:
                     lines.append(plt.plot([edge[0][0], edge[1][0]], [edge[0][1], edge[1][1]], 'bo-')[0])
             return lines+[angle_text]
+
         ani = animation.FuncAnimation(fig, animate, init_func=init, interval=10, blit=True)
-        # ani.save('main.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
-        plt.show()
+        if output:
+            if not output.endswith('.mp4'):
+                output += '.mp4'
+            ani.save(output, fps=30, extra_args=['-vcodec', 'libx264'])
+        else:
+            plt.show()
 
     def isConstrained(self, edge):
         o = edge.origin.coords

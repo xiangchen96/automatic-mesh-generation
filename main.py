@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", type=str, help="input file")
 parser.add_argument("-A", "--animate", help="animate", action="store_true")
 parser.add_argument("-a", "--alpha", type=float, default=15, help="minimum output angle")
+parser.add_argument("-o", "--output", type=str, default=None, help="output file")
 args = parser.parse_args()
 
 
@@ -18,7 +19,7 @@ D.plotPolygon()
 
 if args.animate:
     D.alpha = args.alpha
-    D.animate_main()
+    D.animate_main(args.output)
 else:
     D.generate_mesh(args.alpha, 1000)
     D.plotPolygon()

@@ -4,7 +4,7 @@ from math import acos, degrees
 
 def sarea(a, b, c):
     """Calculate the signed area of 3 points."""
-    return 0.5*((b[0]-a[0])*(c[1]-a[1])-(c[0]-a[0])*(b[1]-a[1]))
+    return 0.5 * ((b[0]-a[0])*(c[1]-a[1]) - (c[0]-a[0])*(b[1]-a[1]))
 
 
 def segment_crossing(s1, s2):
@@ -15,10 +15,10 @@ def segment_crossing(s1, s2):
     return a1 and a2
 
 
-def pointInPolygon(Q, p):
-    """Devuelve True si el punto Q esta contenido en el poligono p."""
-    path = mpltPath.Path(p)
-    return path.contains_points([Q])
+def pointInPolygon(point, polygon):
+    """Return True if the point is interior to the polygon"""
+    path = mpltPath.Path(polygon)
+    return path.contains_points([point])
 
 
 def get_angles(a, b, c):
@@ -26,15 +26,15 @@ def get_angles(a, b, c):
     def get_angle(a, b, c): return degrees(acos((b*b+c*c-a*a)/(float(2*b*c))))
     if a + b <= c or b + c <= a or c + a <= b:
         return [0, 0, 0]
-    return [get_angle(a, b, c), get_angle(b, c, a), get_angle(c, a, b)]
+    return [get_angle(*_) for _ in ((a, b, c), (b, c, a), (c, a, b))]
 
 
-def in_circle(a, b, c, d):
+def in_circle(a, b, c, point):
     """Return true if d is in the circle a,b,c"""
     sa = sarea(a, b, c)
     if sa == 0:
         return
-    return -np.sign(sa*svolume(a, b, c, d))
+    return -np.sign(sa * svolume(a, b, c, point))
 
 
 def svolume(a, b, c, d):

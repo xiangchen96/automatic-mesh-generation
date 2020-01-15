@@ -1,4 +1,6 @@
 import matplotlib.path as mpltPath
+import numpy as np
+
 from math import acos, degrees
 
 
@@ -15,7 +17,7 @@ def segment_crossing(s1, s2):
     return a1 and a2
 
 
-def pointInPolygon(point, polygon):
+def point_in_polygon(point, polygon):
     """Return True if the point is interior to the polygon"""
     path = mpltPath.Path(polygon)
     return path.contains_points([point])
@@ -34,10 +36,17 @@ def in_circle(a, b, c, point):
     sa = sarea(a, b, c)
     if sa == 0:
         return
-    return -np.sign(sa * svolume(a, b, c, point))
+    return -np.sign(sa * _svolume(a, b, c, point))
 
 
-def svolume(a, b, c, d):
+def project_vector(vector, vector_project):
+    """Proyeccion vectorial de vector sobre vector_project"""
+    aux = vector_project[0]*vector[0] + vector_project[1]*vector[1]
+    aux = aux / (vector_project[0]**2 + vector_project[1]**2)
+    return [aux*vector_project[0], aux*vector_project[1]]
+
+
+def _svolume(a, b, c, d):
     """Calculate the signed volume"""
     last_line = [a[0]**2+a[1]**2, b[0]**2+b[1]**2,
                  c[0]**2+c[1]**2, d[0]**2+d[1]**2]
@@ -46,10 +55,3 @@ def svolume(a, b, c, d):
                     [a[1], b[1], c[1], d[1]],
                     last_line])
     return np.linalg.det(arr)/6
-
-
-def project_vector(vector, vector_project):
-    """Proyeccion vectorial de vector sobre vector_project"""
-    aux = vector_project[0]*vector[0] + vector_project[1]*vector[1]
-    aux = aux / (vector_project[0]**2 + vector_project[1]**2)
-    return [aux*vector_project[0], aux*vector_project[1]]

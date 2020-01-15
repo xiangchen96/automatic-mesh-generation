@@ -35,3 +35,13 @@ matplotlib
 numpy
 scipy
 ```
+
+## Referencias
+* Chew, L. Paul (1987). Constrained Delaunay Triangulations. Proceedings of the
+Third Annual Symposium on Computational Geometry.
+* Sloan, S.W. (1993) A fast algorithm for generating constrained Delanay triangu-
+lations. Computers & Structures Vol.47, No.3.
+* Triangle. A Two-Dimensional Quality Mesh Generator and Delaunay Triangu-
+lator. Online. Available: https://www.cs.cmu.edu/~quake/triangle.html
+* Ruppert, J. (1995). A Delaunay Refinement Algorithm for Quality 2-Dimensional
+Mesh Generation. Journal of Algorithms.

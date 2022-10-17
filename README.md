@@ -1,16 +1,11 @@
 # Generador de mallas de regiones poligonales
 <img src="https://thumbs.gfycat.com/AppropriateHighlevelBobwhite-size_restricted.gif" width="400" height="300"/>
 
-Trabajo: https://oa.upm.es/51503/
-
 Dado un polígono simple y un ángulo `α`,
 genera una malla de triángulos con ángulo mínimo `>= α`.
 Hace uso de la inserción de puntos de Steiner,
 partición de aristas restringidas y método de las fuerzas.
 
-Trabajo Fin de Grado
-- Autor: Xiang Chen Chen
-- Tutor: Manuel Abellanas Oar
 
 ## Ejemplos de uso
 Básico:

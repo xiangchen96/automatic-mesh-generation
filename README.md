@@ -1,5 +1,5 @@
 # Generador de mallas de regiones poligonales
-<img src="https://thumbs.gfycat.com/AppropriateHighlevelBobwhite-size_restricted.gif" width="400" height="300"/>
+<img src="https://xiang.es/projects/tfg.gif" width="400" height="300"/>
 
 Dado un polígono simple y un ángulo `α`,
 genera una malla de triángulos con ángulo mínimo `>= α`.
